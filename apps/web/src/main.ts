@@ -45,6 +45,22 @@ function showConfigurationError(message: string): void {
   if (messageElement !== null) messageElement.textContent = message
 }
 
+function showPublicLanding(supabase: SupabaseClient): void {
+  el.innerHTML = `<main class="orygin-public-page">
+    <section class="orygin-public-card" aria-labelledby="orygin-public-title">
+      <div class="orygin-public-brand"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
+      <p class="orygin-auth-eyebrow">Espace de travail IA</p>
+      <h1 id="orygin-public-title">Construis, explore et avance avec Orygin.</h1>
+      <p class="orygin-public-copy">Ton espace de travail intelligent, disponible quand tu en as besoin.</p>
+      <button id="orygin-public-start" class="orygin-auth-submit" type="button">Commencer</button>
+      <p class="orygin-public-note">La connexion est demandée uniquement pour ouvrir ton espace personnel.</p>
+    </section>
+  </main>`
+  document.getElementById('orygin-public-start')?.addEventListener('click', () => {
+    showAuthGate(supabase)
+  })
+}
+
 function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
   if (authGateVisible) return
   authGateVisible = true
@@ -206,7 +222,8 @@ async function bootstrap(): Promise<void> {
       else showAuthGate(supabase)
     },
   }
-  await startApp()
+  if (data.session === null) showPublicLanding(supabase)
+  else await startApp()
   supabase.auth.onAuthStateChange((_event, session) => {
     publishSession(session)
     if (session !== null && !appStarted) queueMicrotask(() => { void startApp() })
