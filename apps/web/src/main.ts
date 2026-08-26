@@ -110,9 +110,15 @@ function showAuthGate(supabase: SupabaseClient): void {
     status.removeAttribute('data-tone')
   }
 
-  loginMode.addEventListener('click', () => setMode(false))
-  signupMode.addEventListener('click', () => setMode(true))
-  footerToggle.addEventListener('click', () => setMode(!signUp))
+  loginMode.addEventListener('click', () => {
+    setMode(false)
+  })
+  signupMode.addEventListener('click', () => {
+    setMode(true)
+  })
+  footerToggle.addEventListener('click', () => {
+    setMode(!signUp)
+  })
   passwordToggle.addEventListener('click', () => {
     const password = form.elements.namedItem('password') as HTMLInputElement | null
     if (password === null) return
@@ -128,8 +134,16 @@ function showAuthGate(supabase: SupabaseClient): void {
       submit.disabled = true
       status.textContent = signUp ? 'Création du compte…' : 'Connexion…'
       status.removeAttribute('data-tone')
-      const email = String((form.elements.namedItem('email') as HTMLInputElement).value).trim()
-      const password = String((form.elements.namedItem('password') as HTMLInputElement).value)
+      const emailInput = form.elements.namedItem('email')
+      const passwordInput = form.elements.namedItem('password')
+      if (!(emailInput instanceof HTMLInputElement) || !(passwordInput instanceof HTMLInputElement)) {
+        status.textContent = 'Le formulaire est incomplet. Recharge la page et réessaie.'
+        status.setAttribute('data-tone', 'error')
+        submit.disabled = false
+        return
+      }
+      const email = emailInput.value.trim()
+      const password = passwordInput.value
       const result = signUp
         ? await supabase.auth.signUp({ email, password })
         : await supabase.auth.signInWithPassword({ email, password })

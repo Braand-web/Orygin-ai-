@@ -68,8 +68,8 @@ function accessTokenFromUrl(rawUrl: string | undefined): string | undefined {
 async function authenticateToken(token: string): Promise<boolean> {
   const supabase = getSupabaseClient()
   if (supabase === undefined) return false
-  const { data, error } = await supabase.auth.getUser(token)
-  return error === null && data.user !== null
+  const { error } = await supabase.auth.getUser(token)
+  return error === null
 }
 
 function getSupabaseClient(): SupabaseClient | undefined {
