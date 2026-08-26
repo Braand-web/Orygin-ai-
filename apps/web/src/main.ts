@@ -21,6 +21,7 @@ const authRequired = import.meta.env.VITE_ORYGIN_AUTH_REQUIRED === '1'
 let accessToken: string | undefined
 let appStarted = false
 let authGateVisible = false
+let guestDraft = ''
 
 function publishSession(session: Session | null): void {
   accessToken = session?.access_token
@@ -45,23 +46,70 @@ function showConfigurationError(message: string): void {
   if (messageElement !== null) messageElement.textContent = message
 }
 
-function showPublicLanding(supabase: SupabaseClient): void {
-  el.innerHTML = `<main class="orygin-public-page">
-    <section class="orygin-public-card" aria-labelledby="orygin-public-title">
-      <div class="orygin-public-brand"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
-      <p class="orygin-auth-eyebrow">Espace de travail IA</p>
-      <h1 id="orygin-public-title">Construis, explore et avance avec Orygin.</h1>
-      <p class="orygin-public-copy">Ton espace de travail intelligent, disponible quand tu en as besoin.</p>
-      <button id="orygin-public-start" class="orygin-auth-submit" type="button">Commencer</button>
-      <p class="orygin-public-note">La connexion est demandée uniquement pour ouvrir ton espace personnel.</p>
+function showGuestShell(supabase: SupabaseClient): void {
+  authGateVisible = false
+  el.innerHTML = `<main class="orygin-guest-shell">
+    <aside class="orygin-guest-sidebar">
+      <div class="orygin-guest-brand"><img src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
+      <button class="orygin-guest-new" type="button" data-auth-action>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        <span>Nouveau chat</span>
+      </button>
+      <nav class="orygin-guest-nav" aria-label="Navigation principale">
+        <button type="button" data-auth-action><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg><span>Recherche</span></button>
+        <button type="button" data-auth-action><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 4.5 7.2v9.6L12 21l7.5-4.2V7.2L12 3Z" /><path d="M12 8v8M8.5 10l7 4M15.5 10l-7 4" /></svg><span>Orygin Diving</span></button>
+      </nav>
+      <div class="orygin-guest-sidebar-footer">
+        <button type="button" data-auth-action><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16M7 4v6M17 14v6M4 17h16" /></svg><span>Modèles</span></button>
+        <button type="button" data-auth-action><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3v4M16 3v4M6 7h12v5a6 6 0 0 1-12 0V7Z" /><path d="M12 18v3" /></svg><span>Plugins</span></button>
+        <button class="orygin-guest-account" type="button" data-auth-action><span class="orygin-guest-avatar">O</span><span>Se connecter</span></button>
+      </div>
+    </aside>
+    <section class="orygin-guest-main" aria-labelledby="orygin-guest-title">
+      <header class="orygin-guest-topbar">
+        <div class="orygin-guest-mobile-brand"><img src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
+        <span class="orygin-guest-conversation">Nouvelle conversation</span>
+        <button type="button" data-auth-action>Se connecter</button>
+      </header>
+      <div class="orygin-guest-stage">
+        <div class="orygin-guest-intro">
+          <img src="/favicon.svg" alt="" />
+          <h1 id="orygin-guest-title">Que veux-tu accomplir ?</h1>
+        </div>
+        <form id="orygin-guest-composer" class="orygin-guest-composer">
+          <textarea id="orygin-guest-input" rows="1" maxlength="12000" aria-label="Message" placeholder="Demander à Orygin…"></textarea>
+          <div class="orygin-guest-composer-tools">
+            <button type="button" data-auth-action aria-label="Ajouter une pièce jointe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12.5 7.5-5.2 5.2a3 3 0 1 0 4.2 4.2l6.4-6.4a4.5 4.5 0 0 0-6.4-6.4L5.2 10.5" /></svg></button>
+            <span>Orygin</span>
+            <button class="orygin-guest-send" type="submit" aria-label="Envoyer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg></button>
+          </div>
+        </form>
+        <p class="orygin-guest-hint">La connexion sera demandée au moment d’envoyer.</p>
+      </div>
     </section>
   </main>`
-  document.getElementById('orygin-public-start')?.addEventListener('click', () => {
-    showAuthGate(supabase)
+
+  const input = document.getElementById('orygin-guest-input') as HTMLTextAreaElement | null
+  const composer = document.getElementById('orygin-guest-composer') as HTMLFormElement | null
+  if (input !== null) {
+    input.value = guestDraft
+    input.addEventListener('input', () => {
+      guestDraft = input.value
+    })
+  }
+  const openAuth = (): void => {
+    showAuthGate(supabase, undefined, () => showGuestShell(supabase))
+  }
+  el.querySelectorAll<HTMLElement>('[data-auth-action]').forEach((action) => {
+    action.addEventListener('click', openAuth)
+  })
+  composer?.addEventListener('submit', (event) => {
+    event.preventDefault()
+    openAuth()
   })
 }
 
-function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
+function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void, onCancel?: () => void): void {
   if (authGateVisible) return
   authGateVisible = true
   el.innerHTML = `<main class="orygin-auth-page">
@@ -69,6 +117,9 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
       <div class="orygin-auth-main-inner">
         <div class="orygin-auth-brand-header"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
         <div class="orygin-auth-card">
+          <button id="orygin-auth-close" class="orygin-auth-close" type="button" aria-label="Fermer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
           <div class="orygin-auth-card-header">
             <h1 id="orygin-auth-title">Connexion</h1>
             <p id="orygin-auth-description">Accède à ton espace Orygin.</p>
@@ -109,11 +160,12 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
   const title = document.getElementById('orygin-auth-title')
   const description = document.getElementById('orygin-auth-description')
   const passwordToggle = document.getElementById('orygin-auth-password-toggle') as HTMLButtonElement | null
+  const close = document.getElementById('orygin-auth-close') as HTMLButtonElement | null
   const status = document.getElementById('orygin-auth-status')
   if (
     form === null || submit === null || loginMode === null || signupMode === null
     || footerToggle === null || footerPrompt === null || title === null || description === null
-    || passwordToggle === null || status === null
+    || passwordToggle === null || close === null || status === null
   ) return
 
   let signUp = false
@@ -148,6 +200,10 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
     password.type = visible ? 'password' : 'text'
     passwordToggle.setAttribute('aria-pressed', String(!visible))
     passwordToggle.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe')
+  })
+  close.addEventListener('click', () => {
+    authGateVisible = false
+    onCancel?.()
   })
 
   form.addEventListener('submit', (event) => {
@@ -218,11 +274,11 @@ async function bootstrap(): Promise<void> {
   ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
     getAccessToken: () => accessToken,
     requestAuth: () => {
-      if (appStarted) showAuthGate(supabase, () => window.location.reload())
-      else showAuthGate(supabase)
+      if (appStarted) showAuthGate(supabase, () => window.location.reload(), () => window.location.reload())
+      else showAuthGate(supabase, undefined, () => showGuestShell(supabase))
     },
   }
-  if (data.session === null) showPublicLanding(supabase)
+  if (data.session === null) showGuestShell(supabase)
   else await startApp()
   supabase.auth.onAuthStateChange((_event, session) => {
     publishSession(session)
