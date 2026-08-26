@@ -27,7 +27,7 @@ export interface SettingsDescribeView {
 /** Mirror state every derived settings surface renders from. */
 export interface SettingsMirrorSnapshot {
   /**
-   * `unavailable` is the terminal non-loopback state; `ready` persists across
+   * `unavailable` is the terminal in-memory state; `ready` persists across
    * later failed refreshes (the held view keeps serving); `idle` means no
    * answer is held and no read is running, so `ensure` will start one.
    */
@@ -79,15 +79,39 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
 
   /**
    * @param api - settings wire face.
-   * @param persistence - remote browsers stay process-local because settings RPCs are loopback-only.
+   * @param persistence - host reads use the privileged settings RPC; remote
+   * browsers receive a redacted, read-only Orygin catalog; memory mode is the
+   * process-local fallback used by non-Models settings surfaces.
    */
   constructor(
     private readonly api: SettingsFace,
-    private readonly persistence: 'host' | 'memory' = 'host',
+    private readonly persistence: 'host' | 'remote' | 'memory' = 'host',
   ) {
+    // Settings and credentials are intentionally loopback-only. A remote
+    // browser still needs a useful Models surface, however: expose the
+    // public Orygin provider catalog through a redacted, read-only namespace
+    // instead of surfacing the privileged RPC's 403 as a fatal page error.
+    const remoteView: SettingsDescribeView | undefined = persistence === 'remote'
+      ? {
+        writable: false,
+        hasDocument: false,
+        namespaces: [{
+          ns: 'llm-orygin',
+          // Minimal object schema: the remote view is intentionally
+          // read-only, so no private host schema or defaults cross the wire.
+          schema: { type: 'object', dict: {} },
+          value: {},
+          base: {},
+          user: {},
+          applies: 'live',
+          secrets: [],
+          revision: 0,
+        }],
+      }
+      : undefined
     this.store = createSnapshotStore<SettingsMirrorSnapshot>({
-      status: persistence === 'host' ? 'idle' : 'unavailable',
-      view: undefined,
+      status: persistence === 'host' ? 'idle' : persistence === 'remote' ? 'ready' : 'unavailable',
+      view: remoteView,
       error: null,
     })
   }
@@ -112,7 +136,7 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
    * @returns settlement after this call's freshness is reflected.
    */
   load(): Promise<void> {
-    if (this.persistence === 'memory') return Promise.resolve()
+    if (this.persistence !== 'host') return Promise.resolve()
     if (this.inFlight !== undefined) {
       this.rerun = true
       return this.inFlight
@@ -130,7 +154,7 @@ export class SettingsDescribeMirror implements SettingsDescribeFace {
    * @returns settlement of the current or newly started read, if any.
    */
   ensure(): Promise<void> {
-    if (this.persistence === 'memory') return Promise.resolve()
+    if (this.persistence !== 'host') return Promise.resolve()
     if (this.inFlight !== undefined) return this.inFlight
     if (this.getSnapshot().status === 'idle') return this.load()
     return Promise.resolve()
