@@ -22,11 +22,17 @@ interface Observed {
 }
 
 const disposers: (() => Promise<void>)[] = []
+const previousAuthRequired = process.env.ORYGIN_AUTH_REQUIRED
+const previousPublicHost = process.env.ORYGIN_ALLOW_PUBLIC_HOST
 
 afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose()
   internals.stdout = process.stdout
   internals.stderr = process.stderr
+  if (previousAuthRequired === undefined) delete process.env.ORYGIN_AUTH_REQUIRED
+  else process.env.ORYGIN_AUTH_REQUIRED = previousAuthRequired
+  if (previousPublicHost === undefined) delete process.env.ORYGIN_ALLOW_PUBLIC_HOST
+  else process.env.ORYGIN_ALLOW_PUBLIC_HOST = previousPublicHost
 })
 
 /**
@@ -134,11 +140,22 @@ describe('web command-line provider', () => {
     expect(observed.exits).toEqual([1])
   })
 
-  it('rejects the intentionally unsupported all-interfaces host before the consumer activates', async () => {
+  it('rejects a public host unless Supabase authentication is explicitly enabled', async () => {
     const { values, observed } = await bootProvider(['--host', '0.0.0.0'])
-    expect(observed.out).toContain('--host 0.0.0.0 is intentionally not supported yet for safety: it would expose remote code execution to the network; use 127.0.0.1 instead')
+    expect(observed.out).toContain('--host 0.0.0.0 is intentionally not supported without Supabase authentication')
     expect(values).toBeUndefined()
     expect(observed.readerConfig).toBeUndefined()
     expect(observed.exits).toEqual([1])
+  })
+
+  it('allows a public host only with both deployment and auth opt-ins', async () => {
+    process.env.ORYGIN_AUTH_REQUIRED = '1'
+    process.env.ORYGIN_ALLOW_PUBLIC_HOST = '1'
+    const { values, observed } = await bootProvider(['--host', '0.0.0.0', '--no-open'])
+    expect(values).toEqual({ host: '0.0.0.0', openBrowser: false, trustedHosts: [] })
+    expect(observed.readerConfig).toEqual({
+      host: '0.0.0.0', openBrowser: false, port: 3080, trustedHosts: [],
+    })
+    expect(observed.exits).toEqual([])
   })
 })

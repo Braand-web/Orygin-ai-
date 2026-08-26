@@ -7,6 +7,7 @@ import {
 } from '@orygin-ai/dsh-host-apiproxy/api'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { randomUuid } from './random-uuid.ts'
+import { authHeaders } from './auth.ts'
 
 const INTERNAL_BASE = 'http://dsh.internal'
 const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
@@ -36,7 +37,7 @@ export function createWebConnectionRpc(doFetch?: RpcFetch): ClientConnectionRpc 
         new URL(`${channel}/${endpoint}`, resolveBase()),
         {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', ...authHeaders() },
           body: JSON.stringify(message),
           ...signal === undefined ? {} : { signal },
         },

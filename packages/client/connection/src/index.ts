@@ -10,6 +10,7 @@ import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { rejectWebSocketUpgrade, WebSocketDownlinks } from './websocket-downlink.ts'
+import { authenticateFetchRequest, authenticateNodeRequest } from './auth.ts'
 
 export type {
   ConnectionRpcAuthority,
@@ -138,6 +139,12 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
   const connection = new HostConnectionService(ctx, trustedHosts)
   const fetchHandler = connection.createSharedFetchHandler(API_PATH, {
     async fetch(request) {
+      if (!(await authenticateFetchRequest(request))) {
+        return new Response('unauthorized', {
+          status: 401,
+          headers: { 'www-authenticate': 'Bearer' },
+        })
+      }
       const pathname = new URL(request.url).pathname
       const method = pathname.startsWith(`${API_PATH}/`)
         ? pathname.slice(API_PATH.length + 1)
@@ -167,6 +174,11 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
         res.end('forbidden')
         return
       }
+      if (!(await authenticateNodeRequest(req))) {
+        res.writeHead(401, { 'www-authenticate': 'Bearer' })
+        res.end('unauthorized')
+        return
+      }
       await bridge(req, res, fetchHandler, maxRequestBodyBytes)
     },
   }
@@ -180,8 +192,12 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
     ): void => {
       apiCtx.effect(() => apiCtx.webServer.registerUpgrade({
         path,
-        handler: (req, socket, head) => {
+        handler: async (req, socket, head) => {
           if (!isTrustedApiRequest(req, trustedHosts)) {
+            rejectWebSocketUpgrade(socket)
+            return
+          }
+          if (!(await authenticateNodeRequest(req))) {
             rejectWebSocketUpgrade(socket)
             return
           }

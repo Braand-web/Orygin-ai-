@@ -26,6 +26,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@supabase/supabase-js": "2.112.4",
     "@orygin-ai/cordis-plugin-group": "workspace:^",
     "@orygin-ai/dsh-client-modules": "workspace:^",
     "@orygin-ai/dsh-client-ui-primitives": "workspace:^",
