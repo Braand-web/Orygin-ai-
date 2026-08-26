@@ -34,6 +34,7 @@ apps/web/dist/
 .artifacts/
 .dsh-build/
 .playwright-mcp/
+.wrangler/
 .orig
 .worktrees/
 worktrees/
