@@ -3,6 +3,7 @@
 interface AuthGlobal {
   __ORYGIN_AUTH__?: {
     getAccessToken?: () => string | undefined
+    requestAuth?: () => void
   }
 }
 
@@ -31,4 +32,15 @@ export function withAuthQuery(url: URL): URL {
   const token = getAccessToken()
   if (token !== undefined) url.searchParams.set('access_token', token)
   return url
+}
+
+/** Notify the application shell that a protected action needs sign-in. */
+export function notifyAuthRequired(): void {
+  try {
+    ;(globalThis as AuthGlobal).__ORYGIN_AUTH__?.requestAuth?.()
+  } catch (error) {
+    // Authentication UX must never turn a transport rejection into another
+    // uncaught error in the RPC carrier.
+    console.error('[client-connection] auth prompt callback failed:', error)
+  }
 }

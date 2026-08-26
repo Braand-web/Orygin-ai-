@@ -10,6 +10,7 @@ const el: HTMLElement = rootElement
 interface AuthGlobal {
   __ORYGIN_AUTH__?: {
     getAccessToken: () => string | undefined
+    requestAuth?: () => void
   }
 }
 
@@ -19,11 +20,14 @@ const authRequired = import.meta.env.VITE_ORYGIN_AUTH_REQUIRED === '1'
 
 let accessToken: string | undefined
 let appStarted = false
+let authGateVisible = false
 
 function publishSession(session: Session | null): void {
   accessToken = session?.access_token
+  const requestAuth = (globalThis as AuthGlobal).__ORYGIN_AUTH__?.requestAuth
   ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
     getAccessToken: () => accessToken,
+    ...requestAuth === undefined ? {} : { requestAuth },
   }
 }
 
@@ -41,7 +45,9 @@ function showConfigurationError(message: string): void {
   if (messageElement !== null) messageElement.textContent = message
 }
 
-function showAuthGate(supabase: SupabaseClient): void {
+function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void): void {
+  if (authGateVisible) return
+  authGateVisible = true
   el.innerHTML = `<main class="orygin-auth-page">
     <section class="orygin-auth-main" aria-labelledby="orygin-auth-title">
       <div class="orygin-auth-main-inner">
@@ -160,7 +166,8 @@ function showAuthGate(supabase: SupabaseClient): void {
         submit.disabled = false
         return
       }
-      await startApp()
+      if (afterAuth !== undefined) afterAuth()
+      else await startApp()
     })().catch((error: unknown) => {
       status.textContent = error instanceof Error ? error.message : String(error)
       status.setAttribute('data-tone', 'error')
@@ -188,8 +195,18 @@ async function bootstrap(): Promise<void> {
     return
   }
   publishSession(data.session)
-  if (data.session === null) showAuthGate(supabase)
-  else await startApp()
+  // Keep the product visible to signed-out visitors. The API remains
+  // protected; an action that receives HTTP 401 calls requestAuth below and
+  // opens this gate in context. This mirrors the Codex-style flow where
+  // authentication is requested at the point of need, not at page load.
+  ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
+    getAccessToken: () => accessToken,
+    requestAuth: () => {
+      if (appStarted) showAuthGate(supabase, () => window.location.reload())
+      else showAuthGate(supabase)
+    },
+  }
+  await startApp()
   supabase.auth.onAuthStateChange((_event, session) => {
     publishSession(session)
     if (session !== null && !appStarted) queueMicrotask(() => { void startApp() })

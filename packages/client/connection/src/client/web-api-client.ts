@@ -5,7 +5,23 @@ import { AbstractApiClient } from './api.ts'
 import { hostFrameSchema, muxFrameSchema } from '@orygin-ai/dsh-host-apiproxy/api/events.schema'
 import { serverRequestSchema } from '@orygin-ai/dsh-host-apiproxy/api/rpc.schema'
 import { HOST_EVENTS_PATH, MUX_EVENTS_PATH } from '../api-path.ts'
-import { withAuth, withAuthQuery } from './auth.ts'
+import { notifyAuthRequired, withAuth, withAuthQuery } from './auth.ts'
+
+/** Unary calls that represent a user action rather than an initial read. */
+const AUTH_ACTION_PATHS = new Set([
+  '/api/session.create', '/api/session.prompt', '/api/session.rename', '/api/session.fork',
+  '/api/session.selectModel', '/api/session.attachment', '/api/session.updateQueue', '/api/session.cancel',
+  '/api/subagent.prompt', '/api/subagent.interrupt', '/api/respond',
+  '/api/workspace.create', '/api/workspace.rename', '/api/workspace.delete',
+  '/api/workspace.insertBefore', '/api/workspace.insertSessionBefore', '/api/workspace.archiveSession',
+  '/api/goal.create', '/api/goal.edit', '/api/goal.pause', '/api/goal.resume',
+  '/api/goal.complete', '/api/goal.clear',
+  '/api/settings.update', '/api/settings.replace', '/api/settings.mutate',
+  '/api/settings.openDocument', '/api/credentials.set', '/api/credentials.unset', '/api/host.pickDirectory',
+  '/api/host.listDirectory', '/api/host.createDirectory', '/api/host.openPath',
+  '/api/agentPreset.select', '/api/agentPreset.read', '/api/agentPreset.copy',
+  '/api/agentPreset.openDocument', '/api/agentPreset.remove', '/api/llm.discoverModels',
+])
 
 type SocketItem<F> = { kind: 'frame'; envelope: RpcRequest<F> } | { kind: 'end' }
 type Parser<F> = { parse(value: unknown): F }
@@ -13,7 +29,10 @@ type Parser<F> = { parse(value: unknown): F }
 /** Browser platform subclass: unary/respond use fetch; mux/host use downlink-only WebSockets. */
 export class WebApiClient extends AbstractApiClient {
   protected doFetch(input: URL, init?: RequestInit): Promise<Response> {
-    return globalThis.fetch(input, withAuth(init))
+    return globalThis.fetch(input, withAuth(init)).then((response) => {
+      if (response.status === 401 && AUTH_ACTION_PATHS.has(input.pathname)) notifyAuthRequired()
+      return response
+    })
   }
 
   protected override openMux(
