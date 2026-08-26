@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
   <title id="title">Orygin</title>
-  <rect width="64" height="64" rx="16" fill="#4D6BFE"/>
-  <circle cx="32" cy="32" r="17" fill="none" stroke="white" stroke-width="7"/>
-  <circle cx="32" cy="32" r="4" fill="white"/>
+  <rect width="64" height="64" rx="17" fill="#4D6BFE"/>
+  <ellipse cx="32" cy="32" rx="21" ry="13.5" transform="rotate(-28 32 32)" fill="none" stroke="#fff" stroke-width="5.2"/>
+  <ellipse cx="32" cy="32" rx="21" ry="13.5" transform="rotate(28 32 32)" fill="none" stroke="#fff" stroke-width="5.2" opacity=".62"/>
+  <circle cx="32" cy="32" r="5.4" fill="#fff"/>
 </svg>
