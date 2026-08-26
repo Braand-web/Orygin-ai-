@@ -43,28 +43,13 @@ function showConfigurationError(message: string): void {
 
 function showAuthGate(supabase: SupabaseClient): void {
   el.innerHTML = `<main class="orygin-auth-page">
-    <section class="orygin-auth-brand" aria-label="Orygin">
-      <div class="orygin-auth-brand-header"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
-      <div class="orygin-auth-brand-content">
-        <p class="orygin-auth-eyebrow">Workspace privé</p>
-        <h2>Des idées plus claires.<br /><span>Des actions plus rapides.</span></h2>
-        <p class="orygin-auth-brand-lead">Un espace de travail pensé pour transformer chaque intention en résultat, avec une expérience simple, fluide et concentrée.</p>
-        <ul class="orygin-auth-benefits">
-          <li class="orygin-auth-benefit"><span class="orygin-auth-benefit-mark" aria-hidden="true">✓</span><span>Retrouve tes projets au même endroit</span></li>
-          <li class="orygin-auth-benefit"><span class="orygin-auth-benefit-mark" aria-hidden="true">✓</span><span>Garde le fil de chaque conversation</span></li>
-          <li class="orygin-auth-benefit"><span class="orygin-auth-benefit-mark" aria-hidden="true">✓</span><span>Avance dans un environnement sécurisé</span></li>
-        </ul>
-      </div>
-      <div class="orygin-auth-brand-footer">Conçu pour aller à l’essentiel</div>
-    </section>
-    <section class="orygin-auth-main">
+    <section class="orygin-auth-main" aria-labelledby="orygin-auth-title">
       <div class="orygin-auth-main-inner">
-        <div class="orygin-auth-mobile-brand"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
+        <div class="orygin-auth-brand-header"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
         <div class="orygin-auth-card">
           <div class="orygin-auth-card-header">
-            <p class="orygin-auth-eyebrow">Espace Orygin</p>
-            <h1 id="orygin-auth-title">Bienvenue chez Orygin</h1>
-            <p id="orygin-auth-description">Connecte-toi pour retrouver ton espace de travail.</p>
+            <h1 id="orygin-auth-title">Connexion</h1>
+            <p id="orygin-auth-description">Accède à ton espace Orygin.</p>
           </div>
           <div class="orygin-auth-mode" role="tablist" aria-label="Mode d’accès">
             <button id="orygin-auth-login-mode" class="orygin-auth-mode-button" type="button" role="tab" aria-selected="true">Se connecter</button>
@@ -73,13 +58,11 @@ function showAuthGate(supabase: SupabaseClient): void {
           <form id="orygin-auth-form" class="orygin-auth-form">
             <label class="orygin-auth-field"><span>Adresse email</span>
               <span class="orygin-auth-field-control">
-                <svg class="orygin-auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></svg>
                 <input class="orygin-auth-input" name="email" type="email" placeholder="toi@exemple.com" autocomplete="email" required />
               </span>
             </label>
             <label class="orygin-auth-field"><span>Mot de passe</span>
               <span class="orygin-auth-field-control">
-                <svg class="orygin-auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
                 <input class="orygin-auth-input" name="password" type="password" minlength="6" placeholder="Au moins 6 caractères" autocomplete="current-password" required />
                 <button id="orygin-auth-password-toggle" class="orygin-auth-password-toggle" type="button" aria-label="Afficher le mot de passe" aria-pressed="false">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></svg>
@@ -91,7 +74,6 @@ function showAuthGate(supabase: SupabaseClient): void {
           </form>
           <div class="orygin-auth-card-footer"><span id="orygin-auth-footer-prompt">Pas encore de compte ?</span><button id="orygin-auth-footer-toggle" type="button">Créer un compte</button></div>
         </div>
-        <p class="orygin-auth-security-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 19 6v5c0 4.5-2.8 8.3-7 10-4.2-1.7-7-5.5-7-10V6l7-3Z" /><path d="m9 12 2 2 4-4" /></svg><span>Tes données restent protégées pendant toute la session.</span></p>
       </div>
     </section>
   </main>`
@@ -118,8 +100,8 @@ function showAuthGate(supabase: SupabaseClient): void {
     submit.textContent = signUp ? 'Créer mon compte' : 'Se connecter'
     loginMode.setAttribute('aria-selected', String(!signUp))
     signupMode.setAttribute('aria-selected', String(signUp))
-    title.textContent = signUp ? 'Crée ton espace Orygin' : 'Bienvenue chez Orygin'
-    description.textContent = signUp ? 'Crée ton compte en quelques secondes pour commencer.' : 'Connecte-toi pour retrouver ton espace de travail.'
+    title.textContent = signUp ? 'Créer un compte' : 'Connexion'
+    description.textContent = signUp ? 'Crée ton espace Orygin.' : 'Accède à ton espace Orygin.'
     footerPrompt.textContent = signUp ? 'Tu as déjà un compte ?' : 'Pas encore de compte ?'
     footerToggle.textContent = signUp ? 'Se connecter' : 'Créer un compte'
     const password = form.elements.namedItem('password') as HTMLInputElement | null
