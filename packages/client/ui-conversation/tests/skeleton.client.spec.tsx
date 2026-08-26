@@ -429,11 +429,14 @@ describe('ConversationRoot resident composer', () => {
     expect(b.view.getByText('Selected Folder')).toBeTruthy()
   })
 
-  it('settling phase: a summary that does not prove the session blank hides the composer while it opens', () => {
+  it('settling phase: an unresolved session keeps a visible locked composer while it opens', () => {
     const b = mount(conversationSnapshot({ composerPhase: 'blank', blank: true, openState: 'loading' }))
     const root = b.view.container.querySelector('[data-phase]')
     expect(root?.getAttribute('data-phase')).toBe('settling')
     expect(b.view.queryByText('探索未至之境')).toBeNull()
+    const box = b.view.getByRole('textbox') as HTMLTextAreaElement
+    expect(box.disabled).toBe(true)
+    expect(box.placeholder).toBe('载入历史…')
   })
 
   it('settling phase: a session the list has no row for settles conservatively', () => {
@@ -445,6 +448,7 @@ describe('ConversationRoot resident composer', () => {
     )
     const root = b.view.container.querySelector('[data-phase]')
     expect(root?.getAttribute('data-phase')).toBe('settling')
+    expect((b.view.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true)
   })
 
   it('startup auto-selection: a summary-proven blank session opens straight into the hero', () => {

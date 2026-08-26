@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "orygin-gateway",
+  "main": "./orygin-gateway.mjs",
+  "compatibility_date": "2026-08-26",
+  "account_id": "2ead1748668417f67d184d93a3fd69ec",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "orygin.fun/*",
+      "zone_id": "77f3a2360d6b6e9c35ea3c38b884aa92"
+    },
+    {
+      "pattern": "www.orygin.fun/*",
+      "zone_id": "77f3a2360d6b6e9c35ea3c38b884aa92"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

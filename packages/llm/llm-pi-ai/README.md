@@ -4,6 +4,8 @@ English | [中文](README.zh.md)
 
 Generic multi-provider adapter for the harness LLM seam backed by [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai). One plugin instance owns a dict of provider profiles keyed by route; every request selects a profile with `GenerateOptions.provider` and resolves `GenerateOptions.model` against that route's configured catalog. A route naming an installed pi-ai provider inherits its endpoint, wire protocol, and model catalog as defaults and overrides them field by field; a route pi-ai does not ship is declared outright, so an OpenAI-compatible gateway, a self-hosted server, or a provider newer than the installed catalog is configuration rather than a code change.
 
+The compatible source entry used by the Orygin route is translated at this package boundary. Public discovery, selectors, login, ambient credentials, model identifiers, display names, and default network requests use `orygin`, `ORYGIN_API_KEY`, `orygin-v4-*`, Orygin labels, and `https://api.orygin.fun`; the source provider's identity and endpoint are never exposed as an available route.
+
 The package root exposes the Cordis plugin contract, `PiAiAdapter`, and `supportedProtocols()`; profile resolution, catalog materialization, provider construction, replay conversion, and stream conversion remain package-internal.
 
 ## Config

@@ -219,7 +219,8 @@
 /* Active phase: header is ordinary column chrome above the scrollport (not
    sticky). The scroll body holds the transcript and the sticky composer seat
    so wheel over the footer moves the flow. */
-.root[data-phase='active'] {
+.root[data-phase='active'],
+.root[data-phase='settling'] {
   overflow: hidden;
 }
 
@@ -253,7 +254,8 @@
   min-height: auto;
 }
 
-.root[data-phase='active'] .composerSeat {
+.root[data-phase='active'] .composerSeat,
+.root[data-phase='settling'] .composerSeat {
   position: sticky;
   bottom: 0;
   /* Above markdown CodeBlock sticky banners (z-index 6) so the footer never
@@ -363,8 +365,9 @@
   overflow-y: auto;
 }
 
-/* Settling (session replaying, hero/docked unknown): keep the composer seat
-   mounted but invisible so no wrong layout flashes before the phase lands. */
-.root[data-phase='settling'] .composerSeat {
-  visibility: hidden;
+/* Settling (session replaying, hero/docked unknown): keep the locked composer
+   visibly docked. The textarea remains the same DOM node across settlement,
+   so reconnects never blank the primary input surface. */
+.root[data-phase='settling'] .scrollBody {
+  justify-content: flex-end;
 }

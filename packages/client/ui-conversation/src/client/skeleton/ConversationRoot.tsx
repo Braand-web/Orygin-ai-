@@ -66,8 +66,9 @@ export function ConversationRoot({
   }, [pendingWorkspaceId, sessionWorkspace?.workspaceId, workspaces.phase, pendingWorkspace])
 
   // While a session is still replaying (loading + blank) the hero/docked
-  // choice is unknowable — render the composer hidden instead of flashing
-  // the centered hero and snapping to the docked bar (or vice versa).
+  // choice is unknowable. Keep the resident composer painted at the dock but
+  // lock it with loading copy; hiding its seat made the primary input appear
+  // and disappear on session switches and reconnects.
   // Exemption: a session the list summary already proves blank can only
   // land on the hero, so hiding would blank the column for the whole
   // history round-trip (the startup auto-selection flash) for nothing.
@@ -135,25 +136,27 @@ export function ConversationRoot({
   const blocked = !inert && composerBlock !== undefined
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
-    ...(inert
-      ? {
-        disabled: true,
-        placeholder: t('placeholder.workspace'),
-        workspacePickerOpen: pickerOpen,
-        onRequestWorkspace: () => { setPickerOpen(true) },
-      }
-      : blocked
-        // `blocked`, not `disabled`: the bar refuses input either way, but a
-        // block keeps the model seat live because choosing a model is how the
-        // user clears it.
-        ? { blocked: composerBlock, placeholder: composerBlock.reason }
-        : hero ? { placeholder: t('placeholder.hero') } : {}),
+    ...(settling
+      ? { disabled: true, placeholder: t('chat.loadingHistory') }
+      : inert
+        ? {
+          disabled: true,
+          placeholder: t('placeholder.workspace'),
+          workspacePickerOpen: pickerOpen,
+          onRequestWorkspace: () => { setPickerOpen(true) },
+        }
+        : blocked
+          // `blocked`, not `disabled`: the bar refuses input either way, but a
+          // block keeps the model seat live because choosing a model is how the
+          // user clears it.
+          ? { blocked: composerBlock, placeholder: composerBlock.reason }
+          : hero ? { placeholder: t('placeholder.hero') } : {}),
     overlay: renderSlot('conversation.input.overlay', {}),
     leftItems: zone === undefined ? null : renderSlot('conversation.input.left', zone),
     rightItems: zone === undefined ? null : renderSlot('conversation.input.right', zone),
     // Stats band under the card, inside the bar's width column so both
     // share one constraint (composer.dock = stats-line family).
-    footer: !hero && zone !== undefined ? renderSlot('conversation.composer.dock', zone) : null,
+    footer: !hero && !settling && zone !== undefined ? renderSlot('conversation.composer.dock', zone) : null,
   })
 
   const composerBar = (

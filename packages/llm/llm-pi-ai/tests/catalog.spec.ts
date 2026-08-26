@@ -12,6 +12,7 @@ import { PiAiAdapter } from '@orygin-ai/dsh-llm-pi-ai'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { createModels, getSupportedThinkingLevels } from '@earendil-works/pi-ai'
 import type { Api, Model, OpenAICompletionsCompat, Provider } from '@earendil-works/pi-ai'
+import { catalogProvider, catalogProviderIds } from '../src/catalog.ts'
 import { resolveProfiles } from '../src/config.ts'
 import { buildProvider, supportedProtocols } from '../src/provider.ts'
 import { assemble } from './assemble.ts'
@@ -24,6 +25,17 @@ const homes: string[] = []
 // environment, which is the layer the adapter falls back to without a
 // mounted credentials seam.
 const KEY_ENV = 'PI_TEST_KEY'
+
+/** Public Orygin view of the compatible source catalog used by this package. */
+function oryginCatalogModels(): Model<Api>[] {
+  return (getBuiltinModels('deepseek') as readonly Model<Api>[]).map(model => ({
+    ...model,
+    id: model.id.replace(/^deepseek-/u, 'orygin-'),
+    name: model.name.replace(/^DeepSeek/u, 'Orygin'),
+    provider: 'orygin',
+    baseUrl: 'https://api.orygin.fun',
+  }))
+}
 
 beforeEach(() => {
   vi.stubEnv(KEY_ENV, 'test-key')
@@ -127,7 +139,7 @@ describe('hand-declared providers', () => {
     // A catalog route is unaffected: its models carry the metadata that makes
     // `off` actually disable thinking.
     const withCatalog = await harness({ providers: { orygin: { baseURL: server.url } } })
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     expect((await withCatalog.llm.resolveModelInfo('orygin', catalogModel.id)).reasoning?.efforts.map(e => e.id))
       .toContain('off')
@@ -264,7 +276,7 @@ describe('hand-declared providers', () => {
     // materializes `[]` for an absent array, so an entry naming a catalog
     // model without declaring modalities must keep the catalog's rather than
     // describe a model that accepts nothing.
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     const resolved = resolveProfiles({
       'orygin': { baseURL: 'https://catalog.test', models: [{ id: catalogModel.id, input: [] }] },
@@ -400,18 +412,57 @@ describe('hand-declared providers', () => {
 })
 
 describe('catalog routes with per-model configuration', () => {
+  it('publishes the Orygin identity, endpoint, models, and credentials at the catalog boundary', async () => {
+    expect(catalogProviderIds()).toContain('orygin')
+    expect(catalogProviderIds()).not.toContain('deepseek')
+
+    const provider = catalogProvider('orygin')
+    if (provider === undefined) throw new Error('the installed catalog ships no orygin provider')
+    expect(provider).toMatchObject({ id: 'orygin', name: 'Orygin', baseUrl: 'https://api.orygin.fun' })
+    expect(provider.getModels()).not.toHaveLength(0)
+    expect(provider.getModels().every(model =>
+      model.provider === 'orygin'
+      && model.id.startsWith('orygin-')
+      && model.name.startsWith('Orygin')
+      && model.baseUrl === 'https://api.orygin.fun')).toBe(true)
+
+    const auth = provider.auth.apiKey
+    if (auth?.login === undefined) throw new Error('the orygin provider ships no API-key login')
+    expect(auth.name).toBe('Orygin API key')
+    await expect(auth.login({
+      prompt: prompt => Promise.resolve(prompt.type === 'secret' ? 'typed-key' : ''),
+      notify: () => {},
+    })).resolves.toEqual({ type: 'api_key', key: 'typed-key' })
+    await expect(auth.resolve({
+      ctx: {
+        env: name => Promise.resolve(name === 'ORYGIN_API_KEY' ? 'ambient-key' : undefined),
+        fileExists: () => Promise.resolve(false),
+      },
+    })).resolves.toEqual({ auth: { apiKey: 'ambient-key' }, source: 'ORYGIN_API_KEY' })
+    await expect(auth.resolve({
+      ctx: { env: () => Promise.resolve(undefined), fileExists: () => Promise.resolve(false) },
+    })).resolves.toBeUndefined()
+    await expect(auth.resolve({
+      ctx: { env: () => Promise.resolve(''), fileExists: () => Promise.resolve(false) },
+    })).resolves.toBeUndefined()
+    await expect(auth.resolve({
+      credential: { type: 'api_key', key: 'stored-key' },
+      ctx: { env: () => Promise.resolve(undefined), fileExists: () => Promise.resolve(false) },
+    })).resolves.toEqual({ auth: { apiKey: 'stored-key' }, source: 'Orygin API key' })
+  })
+
   it('serves the installed catalog untouched when the profile lists no models', async () => {
     const server = await mockServer([])
     const ctx = await harness({ providers: { orygin: { baseURL: server.url } } })
 
     const listed = await ctx.llm.listModels('orygin')
     expect(listed.map(model => model.id).sort())
-      .toEqual(getBuiltinModels('deepseek').map(model => model.id).sort())
+      .toEqual(oryginCatalogModels().map(model => model.id).sort())
   })
 
   it('overrides one catalog model field and defaults the rest from the catalog', async () => {
     const server = await mockServer([])
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     const ctx = await harness({
       providers: {
@@ -435,7 +486,7 @@ describe('catalog routes with per-model configuration', () => {
 
   it('materializes a request default only from a configured output cap', async () => {
     const server = await mockServer([])
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     const ctx = await harness({
       providers: {
@@ -635,9 +686,9 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('narrows a catalog model’s levels in place', () => {
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
-    expect(getSupportedThinkingLevels(catalogModel as Model<Api>)).toEqual(['off', 'high', 'max'])
+    expect(getSupportedThinkingLevels(catalogModel)).toEqual(['off', 'high', 'max'])
 
     const model = modelOf({
       orygin: { models: [{ id: catalogModel.id, reasoningEfforts: { off: null, high: 'high' } }] },
@@ -650,7 +701,7 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('strips reasoning from a catalog model with false', () => {
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     expect(catalogModel.reasoning).toBe(true)
 
@@ -661,7 +712,7 @@ describe('per-model reasoning efforts', () => {
   })
 
   it('inherits the catalog capability when the field is absent', () => {
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
 
     const model = modelOf({ orygin: { models: [{ id: catalogModel.id }] } }, 'orygin')
@@ -687,13 +738,13 @@ describe('per-model reasoning efforts', () => {
 
 describe('modelOverrides', () => {
   const oryginModel = (): Model<Api> => {
-    const [model] = getBuiltinModels('deepseek')
+    const [model] = oryginCatalogModels()
     if (model === undefined) throw new Error('the installed catalog ships no orygin model')
     return model
   }
 
   it('reshapes one catalog model while the rest of the catalog keeps serving', () => {
-    const catalogSize = getBuiltinModels('deepseek').length
+    const catalogSize = oryginCatalogModels().length
     const target = oryginModel()
     const resolved = resolveProfiles({
       orygin: {
@@ -720,7 +771,7 @@ describe('modelOverrides', () => {
     expect(resolved.get('orygin')?.configuredMaxTokens.get(target.id)).toBe(4096)
     // A sibling the overrides do not name is byte-identical to the catalog.
     const sibling = models.find(model => model.id !== target.id)
-    expect(sibling?.maxTokens).toBe(getBuiltinModels('deepseek').find(model => model.id === sibling?.id)?.maxTokens)
+    expect(sibling?.maxTokens).toBe(oryginCatalogModels().find(model => model.id === sibling?.id)?.maxTokens)
   })
 
   it('refuses every override that lands nowhere instead of skipping it', () => {
@@ -781,7 +832,7 @@ describe('compat switches', () => {
   })
 
   it('merges the switches over the catalog entry’s own compat instead of replacing it', () => {
-    const [catalogModel] = getBuiltinModels('deepseek')
+    const [catalogModel] = oryginCatalogModels()
     if (catalogModel === undefined) throw new Error('the installed catalog ships no orygin model')
     const inherited = catalogModel.compat as OpenAICompletionsCompat
     expect(inherited.requiresReasoningContentOnAssistantMessages).toBe(true)

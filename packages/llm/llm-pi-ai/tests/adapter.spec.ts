@@ -13,7 +13,7 @@ import LlmRuntime, { createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, 
 import * as LlmPiAi from '@orygin-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@orygin-ai/dsh-llm-pi-ai'
 import { MAX_TIMER_DELAY_MS } from '@orygin-ai/dsh-timeout'
-import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
+import { catalogModels } from '../src/catalog.ts'
 import { DEFAULT_MAX_REQUEST_IMAGE_BYTES, resolveProfiles } from '../src/config.ts'
 import { memoryAuth } from './auth-double.ts'
 import { assemble } from './assemble.ts'
@@ -368,7 +368,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
-    const model = getBuiltinModels('deepseek').find(candidate => candidate.id === 'orygin-v4-flash')
+    const model = catalogModels('orygin').get('orygin-v4-flash')
     if (model === undefined) throw new Error('orygin-v4-flash missing from pi-ai test catalog')
     const events = [
       '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',

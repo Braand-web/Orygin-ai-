@@ -50,6 +50,7 @@
     - option "openrouter"
     - option "qwen-token-plan"
     - option "qwen-token-plan-cn"
+    - option "radius"
     - option "together"
     - option "vercel-ai-gateway"
     - option "xai"

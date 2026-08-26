@@ -4,6 +4,8 @@
 
 基于 [`@earendil-works/pi-ai`](https://www.npmjs.com/package/@earendil-works/pi-ai) 的 harness LLM（大语言模型）seam 通用多提供方适配器。一个插件实例拥有一份以路由为键的提供方 profile 字典；每个请求使用 `GenerateOptions.provider` 选择 profile，并针对该路由已配置的 catalog 解析 `GenerateOptions.model`。点名了已安装 pi-ai 提供方的路由会继承其端点、协议格式（wire format）与模型 catalog 作为默认值，并逐字段覆盖；pi-ai 未提供的路由则整体声明出来，因此接入 OpenAI 兼容网关、自建服务，或比已安装 catalog 更新的提供方，都属于配置而非改代码。
 
+Orygin 路由所使用的兼容源条目会在本包边界完成转换。公开发现、选择器、登录、环境凭据、模型标识、显示名称与默认网络请求统一使用 `orygin`、`ORYGIN_API_KEY`、`orygin-v4-*`、Orygin 标签及 `https://api.orygin.fun`；源提供方的身份和端点不会作为可用路由暴露。
+
 包根入口导出 Cordis 插件约定、`PiAiAdapter` 与 `supportedProtocols()`；profile 解析、catalog 物化、提供方构造、回放转换和流转换保留在包内部。
 
 ## 配置

@@ -12,11 +12,11 @@
  * @module dsh-llm-pi-ai/catalog
  */
 
-import { builtinProviders, getBuiltinModels, getBuiltinProviders } from '@earendil-works/pi-ai/providers/all'
-import type { BuiltinProvider } from '@earendil-works/pi-ai/providers/all'
+import { builtinProviders } from '@earendil-works/pi-ai/providers/all'
 import type {
   AnthropicMessagesCompat,
   Api,
+  ApiKeyAuth,
   BedrockCompat,
   ChatTemplateKwargValue,
   KnownApi,
@@ -28,6 +28,59 @@ import type {
   Provider,
   ThinkingLevelMap,
 } from '@earendil-works/pi-ai'
+
+/** Public identity of the Orygin-hosted, pi-ai-compatible model route. */
+const ORYGIN_PROVIDER_ID = 'orygin'
+const ORYGIN_SOURCE_PROVIDER_ID = 'deepseek'
+const ORYGIN_BASE_URL = 'https://api.orygin.fun'
+const ORYGIN_API_KEY_ENV = 'ORYGIN_API_KEY'
+
+/** Orygin-owned API-key discovery and interactive setup. */
+const ORYGIN_API_KEY_AUTH: ApiKeyAuth = {
+  name: 'Orygin API key',
+  async login(interaction) {
+    const key = await interaction.prompt({
+      type: 'secret',
+      message: 'Enter your Orygin API key',
+      placeholder: 'orygin-…',
+    })
+    return { type: 'api_key', key }
+  },
+  async resolve({ ctx, credential }) {
+    const storedKey = credential?.key
+    const key = storedKey ?? await ctx.env(ORYGIN_API_KEY_ENV)
+    if (key === undefined || key.length === 0) return undefined
+    return {
+      auth: { apiKey: key },
+      source: storedKey === undefined ? ORYGIN_API_KEY_ENV : 'Orygin API key',
+    }
+  },
+}
+
+/** Translate the compatible source catalog entry into the product's public model identity. */
+function oryginModel(model: Model<Api>): Model<Api> {
+  return {
+    ...model,
+    id: model.id.replace(/^deepseek-/u, 'orygin-'),
+    name: model.name.replace(/^DeepSeek/u, 'Orygin'),
+    provider: ORYGIN_PROVIDER_ID,
+    baseUrl: ORYGIN_BASE_URL,
+  }
+}
+
+/** Translate the compatible source provider without leaking its identity or endpoint. */
+function publicCatalogProvider(provider: Provider): Provider {
+  if (provider.id !== ORYGIN_SOURCE_PROVIDER_ID) return provider
+  const models = provider.getModels().map(oryginModel)
+  return {
+    ...provider,
+    id: ORYGIN_PROVIDER_ID,
+    name: 'Orygin',
+    baseUrl: ORYGIN_BASE_URL,
+    auth: { apiKey: ORYGIN_API_KEY_AUTH },
+    getModels: () => models,
+  }
+}
 
 /**
  * Pricing for a model the installed catalog does not describe. The harness
@@ -155,7 +208,7 @@ let providerIndex: Map<string, Provider> | undefined
  * @returns the catalog provider index.
  */
 function catalogProviders(): Map<string, Provider> {
-  providerIndex ??= new Map(builtinProviders().map(provider => [provider.id, provider]))
+  providerIndex ??= new Map(builtinProviders().map(publicCatalogProvider).map(provider => [provider.id, provider]))
   return providerIndex
 }
 
@@ -173,7 +226,7 @@ export function catalogProvider(provider: string): Provider | undefined {
  * @returns the catalog provider ids.
  */
 export function catalogProviderIds(): readonly string[] {
-  return getBuiltinProviders()
+  return [...catalogProviders().keys()]
 }
 
 /**
@@ -182,9 +235,9 @@ export function catalogProviderIds(): readonly string[] {
  * @returns catalog models by id; empty for a route pi-ai does not ship.
  */
 export function catalogModels(provider: string): Map<string, Model<Api>> {
-  if (!catalogProviders().has(provider)) return new Map()
-  const models = getBuiltinModels(provider as BuiltinProvider) as Model<Api>[]
-  return new Map(models.map(model => [model.id, model]))
+  const installed = catalogProviders().get(provider)
+  if (installed === undefined) return new Map()
+  return new Map(installed.getModels().map(model => [model.id, model]))
 }
 
 /**
