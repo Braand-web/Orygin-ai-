@@ -106,7 +106,7 @@ A route's `compat` is the default for its models, and a model's own wins field b
         - id: my-model
         - id: my-reasoner
           compat:
-            thinkingFormat: orygin
+            thinkingFormat: deepseek
 ```
 
 What neither sets keeps the installed catalog's value for that model, and what the catalog does not describe falls to pi-ai's detection. Give every switch you name a value: a key left empty (`supportsDeveloperRole:`) is refused rather than ignored, because an empty value would erase what the catalog knows while saying nothing in its place. A name no protocol accepts is refused too, and the message lists the ones that are available.

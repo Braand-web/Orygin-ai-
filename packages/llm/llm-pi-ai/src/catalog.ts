@@ -97,7 +97,7 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
  */
 const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
   'openai': true,
-  'orygin': true,
+  'deepseek': true,
   'openrouter': true,
   'together': true,
   'zai': true,

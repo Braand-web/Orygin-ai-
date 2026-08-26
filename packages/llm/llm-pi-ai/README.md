@@ -57,7 +57,7 @@ Configure credentials, the model catalog, and deployment-specific transport sett
         # Request shape for an endpoint whose URL pi-ai cannot recognize; it
         # would otherwise be addressed as though it were OpenAI itself.
         compat:
-          thinkingFormat: orygin
+          thinkingFormat: deepseek
           supportsDeveloperRole: false
           maxTokensField: max_tokens
         models:

@@ -34,7 +34,7 @@
  *         baseURL: https://gateway.acme.example/v1
  *         # Reasoning dialect for a URL pi-ai cannot recognize.
  *         compat:
- *           thinkingFormat: orygin
+ *           thinkingFormat: deepseek
  *         models:
  *           - id: acme-large
  *             name: Acme Large

@@ -368,7 +368,7 @@ describe('PiAiAdapter provider routing', () => {
   })
 
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
-    const model = getBuiltinModels('orygin').find(candidate => candidate.id === 'orygin-v4-flash')
+    const model = getBuiltinModels('deepseek').find(candidate => candidate.id === 'orygin-v4-flash')
     if (model === undefined) throw new Error('orygin-v4-flash missing from pi-ai test catalog')
     const events = [
       '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
@@ -629,7 +629,7 @@ describe('provider profile lifecycle', () => {
           baseURL: `${server.url}/v1`,
           // Without the switch pi-ai guesses the dialect from the endpoint
           // URL, and a private gateway's URL says nothing.
-          compat: { thinkingFormat: 'orygin' },
+          compat: { thinkingFormat: 'deepseek' },
           models: [{
             id: 'acme-think',
             contextWindow: 65_536,
