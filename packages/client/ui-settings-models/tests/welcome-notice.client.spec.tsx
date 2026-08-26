@@ -89,7 +89,7 @@ describe('WelcomeNotice', () => {
   it('uses the exact owner copy in both GUI locales', () => {
     expect(WELCOME_NOTICE_COPY.en).toEqual({
       title: 'Internal Testing Notice',
-      body: "Orygin 0.1 remains in testing for Harness developers. Many areas need further improvement, and we welcome feedback from the developer community. Orygin's core plugins and foundational APIs will continue to evolve rapidly over the coming months.\n\nWe look forward to exploring the limits of intelligence with developers around the world, building on open-source, open, reusable, and composable infrastructure. We welcome Harness developers everywhere to join the ORYGIN plugin ecosystem.",
+      body: "Orygin 0.1 is currently in private testing. Many areas still need refinement, and Orygin's core features and foundational APIs will continue to evolve rapidly over the coming months.\n\nWe are focused on delivering a stable, secure, and efficient workspace for Orygin users.",
       continueLabel: 'Continue',
     })
     expect(en.welcomeBody).toBe(WELCOME_NOTICE_COPY.en.body)

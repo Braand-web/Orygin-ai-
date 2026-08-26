@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-Orygin (`dsh`) is an open-source agent harness developed by [Orygin](https://orygin.fun).
+Orygin (`dsh`) is the agent workspace developed by [Orygin](https://orygin.fun).
 
 It uses an architecture where **everything is a plugin**, and is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).
 
