@@ -1,0 +1,30 @@
+# Keyless replay counterpart of code-mode-workspace-context.cordis.yml. It adds
+# Code Mode to the default filesystem suite and swaps in replay.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: 'none'
+          workspaceContext:
+            maxBytes: 65536
+          tools:
+            mode: code
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: code-runtime
+            name: '@orygin-ai/dsh-code-runtime-worker-thread'
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'

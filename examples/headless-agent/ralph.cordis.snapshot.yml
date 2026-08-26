@@ -1,0 +1,12 @@
+# Replay counterpart to cordis.yml for the shipped Ralph-loop snapshot.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'

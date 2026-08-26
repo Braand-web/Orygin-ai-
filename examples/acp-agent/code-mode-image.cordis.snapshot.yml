@@ -1,0 +1,44 @@
+# Keyless replay combines Code Mode with the durable image store and an exact
+# image-capable replay route. The scenario generates its tiny PNG inside the
+# run_code program, then exercises read_image as a nested dispatch.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash-vision-exp
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: none
+          workspaceContext:
+            maxBytes: 65536
+          tools:
+            mode: code
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: attachment-local
+            name: '@orygin-ai/dsh-attachment-local'
+          - id: code-runtime
+            name: '@orygin-ai/dsh-code-runtime-worker-thread'
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                      inputModalities: [text]
+                    - id: orygin-v4-pro
+                      inputModalities: [text]
+                    - id: orygin-v4-flash-vision-exp
+                      inputModalities: [text, image]

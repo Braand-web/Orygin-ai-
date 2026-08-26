@@ -1,0 +1,63 @@
+{
+  "name": "@orygin-ai/dsh-client-hmr",
+  "description": "Dev-only hot-reload driver for script-loaded client entries: SSE rebuilt frames → invalidate/prefetch → fiber swap through the vendored Loader entry",
+  "version": "0.1.1-rc.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braand-web/Orygin-ai-.git",
+    "directory": "packages/client/hmr"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [],
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@orygin-ai/schemastery": "workspace:^"
+  },
+  "peerDependencies": {
+    "@orygin-ai/cordis-plugin-loader": "workspace:^",
+    "@orygin-ai/dsh-client-modules": "workspace:^",
+    "@orygin-ai/dsh-host-webserver": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  },
+  "devDependencies": {
+    "@orygin-ai/cordis-plugin-loader": "workspace:^",
+    "@orygin-ai/dsh-client-modules": "workspace:^",
+    "@orygin-ai/dsh-host-webserver": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/client.js",
+    "lib/types/**/*.d.ts"
+  ]
+}

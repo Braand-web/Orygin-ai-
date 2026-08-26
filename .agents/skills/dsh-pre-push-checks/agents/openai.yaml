@@ -1,0 +1,4 @@
+interface:
+  display_name: "ORYGIN Pre-Push Checks"
+  short_description: "Run the relevant Orygin checks before push"
+  default_prompt: "Use $dsh-pre-push-checks before pushing this Orygin branch."

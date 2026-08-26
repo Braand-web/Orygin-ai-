@@ -1,0 +1,23 @@
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ../../cordis.yml
+    patches:
+      - id: llm-orygin
+        config:
+          baseURL: !!js process.env.ORYGIN_SNAPSHOT_BASE_URL
+          thinking: enabled
+          reasoningEffort: low
+          streamIdleTimeoutMs: 150
+      - id: agent-spine
+        config:
+          agents:
+            - id: main
+              provider: orygin-official
+              model: orygin-v4-flash
+              cwd: !!js process.cwd()
+          workspaceContext: false
+          persona: 'Keyless Orygin adapter defaults snapshot.'
+      - id: persistence
+        config:
+          root: './.sessions'

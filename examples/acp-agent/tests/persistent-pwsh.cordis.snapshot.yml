@@ -1,0 +1,45 @@
+# Keyless replay counterpart to persistent-pwsh.cordis.yml.
+- id: llm-replay
+  name: '@orygin-ai/dsh-llm-replay'
+  config:
+    providers:
+      - id: orygin-official
+        name: Orygin
+        models:
+          - id: orygin-v4-pro
+
+- id: terminal
+  name: '@orygin-ai/dsh-terminal'
+
+- id: sandbox-policy
+  name: '@orygin-ai/dsh-sandbox-policy'
+  config:
+    mode: danger-full-access
+    workspaceRoot: !!js process.cwd()
+
+- id: subprocess
+  name: '@orygin-ai/dsh-subprocess-local'
+
+- id: terminal-pwsh
+  name: '@orygin-ai/dsh-terminal-bash'
+  config:
+    shellDialect: pwsh
+    timeoutMs: 30000
+
+- id: acp-agent
+  name: '@orygin-ai/dsh-acp-demo'
+  config:
+    provider: orygin-official
+    model: orygin-v4-pro
+    persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+    persistenceCompression: none
+    workspaceContext: false
+    skills:
+      enabled: false
+    toolBash: false
+    toolJobs: false
+    goals: false
+    persona: You are a concise snapshot agent working in {{cwd}}.
+
+- id: tool-pwsh-persistent
+  name: '@orygin-ai/dsh-tool-pwsh-persistent'

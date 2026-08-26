@@ -1,0 +1,18 @@
+# Replay counterpart to goal.cordis.yml. It includes cordis.yml directly because
+# a config patch cannot target an entry behind a nested include, then restates
+# the goal overlay while replacing the live model with keyless replay.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: goal
+            name: '@orygin-ai/dsh-goal'
+          - id: tool-goal
+            name: '@orygin-ai/dsh-tool-goal'
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'

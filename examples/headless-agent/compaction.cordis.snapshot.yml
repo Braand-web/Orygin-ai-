@@ -1,0 +1,24 @@
+# Keyless context-overflow composition for the assembled compaction snapshot.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: compaction-basic
+        name: '@orygin-ai/dsh-compaction-basic'
+        config:
+          thresholdRatio: 0.99
+          retainTokens: 20
+          maxTokens: 32
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  models:
+                    - id: orygin-v4-flash
+                      contextWindow: 128000

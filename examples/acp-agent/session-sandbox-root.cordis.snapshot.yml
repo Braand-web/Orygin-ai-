@@ -1,0 +1,50 @@
+# Keyless replay counterpart of session-sandbox-root.cordis.yml. Patches do not
+# compose across nested includes, so the replay swap, the recorded model pin,
+# and the deliberately distinct sandbox fallback are applied together to the
+# live tree.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: none
+          workspaceContext:
+            maxBytes: 65536
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - id: sandbox
+        name: '@orygin-ai/dsh-sandbox-local'
+        config:
+          runnerCommand:
+            - bash
+            - -c
+            - while [ "$1" != "--" ]; do shift; done; shift; exec "$@"
+            - passthrough-runner
+          runnerFailureSignatures:
+            - 'passthrough-runner: profile rejected'
+      - id: sandbox-policy
+        name: '@orygin-ai/dsh-sandbox-policy'
+        config:
+          mode: workspace-write
+          workspaceRoot: /tmp
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                    - id: orygin-v4-pro

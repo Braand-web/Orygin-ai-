@@ -1,0 +1,53 @@
+{
+  "name": "@orygin-ai/dsh-settings-file",
+  "description": "File-backed settings provider (settings.yaml) for the Orygin",
+  "version": "0.1.1-rc.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braand-web/Orygin-ai-.git",
+    "directory": "packages/settings/settings-file"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@orygin-ai/dsh-atomic-write": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-home-paths": "workspace:^",
+    "@orygin-ai/dsh-settings": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "@orygin-ai/schemastery": "workspace:^",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@orygin-ai/dsh-atomic-write": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-home-paths": "workspace:^",
+    "@orygin-ai/dsh-settings": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  }
+}

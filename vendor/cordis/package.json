@@ -1,0 +1,51 @@
+{
+  "name": "@orygin-ai/cordis",
+  "description": "Meta-Framework for Modern JavaScript Applications",
+  "version": "4.0.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braand-web/Orygin-ai-.git",
+    "directory": "vendor/cordis"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "bin": "bin.js",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.d.ts",
+    "lib/types/**/*.d.ts.map",
+    "bin.js",
+    "src"
+  ],
+  "author": "Shigma <shigma10826@gmail.com>",
+  "license": "MIT",
+  "peerDependencies": {
+    "@orygin-ai/cordis-plugin-include": "workspace:^",
+    "@orygin-ai/cordis-plugin-loader": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@orygin-ai/cordis-plugin-include": {
+      "optional": true
+    },
+    "@orygin-ai/cordis-plugin-loader": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.1.0",
+    "@orygin-ai/cosmokit": "workspace:^"
+  }
+}

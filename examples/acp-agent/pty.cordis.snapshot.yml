@@ -1,0 +1,27 @@
+# Keyless replay counterpart to pty.cordis.yml.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: pty
+            name: '@orygin-ai/dsh-terminal'
+          - id: pty-snapshot-backend
+            name: './pty-snapshot-backend.mjs'
+          - id: tool-terminal
+            name: '@orygin-ai/dsh-tool-terminal'
+            config:
+              maxResultBytes: 64
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                    - id: orygin-v4-pro

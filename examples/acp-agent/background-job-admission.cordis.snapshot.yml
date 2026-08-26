@@ -1,0 +1,36 @@
+# Keyless counterpart to background-job-admission.cordis.yml: replace the
+# Orygin adapter with replay while preserving the app's one-task admission
+# config and the recorded flash route.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: none
+          workspaceContext:
+            maxBytes: 65536
+          tasks:
+            maxConcurrentJobsPerOwner: 1
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                    - id: orygin-v4-pro

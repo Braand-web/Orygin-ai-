@@ -1,0 +1,74 @@
+# Test-only composition of Codex, the Bundle-supplied default Claude provider,
+# and two named Claude instances. It never invokes a model or product process.
+- id: fixture
+  name: './fixture.ts'
+
+- id: subagent
+  name: '@orygin-ai/dsh-subagent'
+
+- id: subprocess
+  name: '@orygin-ai/dsh-subprocess-local'
+
+- id: subagent-codex
+  name: '@orygin-ai/dsh-subagent-codex'
+
+- id: subagent-claude-primary
+  name: '@orygin-ai/dsh-subagent-claude-code'
+  config:
+    providerName: claude-primary
+
+- id: subagent-claude-secondary
+  name: '@orygin-ai/dsh-subagent-claude-code'
+  config:
+    providerName: claude-secondary
+
+- id: tool-subagent-codex
+  name: '@orygin-ai/dsh-tool-subagent'
+  config:
+    provider: codex
+    toolName: subagent_codex
+    backgroundMode: one-shot
+    maxDepth: 'provider-managed'
+
+- id: tool-subagent-claude-code
+  name: '@orygin-ai/dsh-tool-subagent'
+  config:
+    provider: claude-code
+    toolName: subagent_claude_code
+    backgroundMode: one-shot
+    maxDepth: 'provider-managed'
+
+- id: tool-subagent-claude-primary
+  name: '@orygin-ai/dsh-tool-subagent'
+  config:
+    provider: claude-primary
+    toolName: subagent_claude_primary
+    backgroundMode: one-shot
+    maxDepth: 'provider-managed'
+
+- id: tool-subagent-claude-secondary
+  name: '@orygin-ai/dsh-tool-subagent'
+  config:
+    provider: claude-secondary
+    toolName: subagent_claude_secondary
+    backgroundMode: one-shot
+    maxDepth: 'provider-managed'
+
+- id: agent-spine
+  name: '@orygin-ai/dsh-agent-spine-demo'
+  config:
+    agents:
+      - id: main
+        provider: mock
+        model: mock-delegate
+        cwd: !!js process.cwd()
+    persona: 'This composition test must not start a model turn.'
+    workspaceContext: false
+
+- id: persistence
+  name: '@orygin-ai/dsh-session-persistence-jsonl'
+  config:
+    root: './.sessions'
+
+- id: checkpoint-policy
+  name: '@orygin-ai/dsh-session-checkpoint-policy'

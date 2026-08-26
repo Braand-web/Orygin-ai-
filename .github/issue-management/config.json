@@ -1,0 +1,18 @@
+{
+  "organization": "orygin-ai",
+  "repository": "orygin-ai",
+  "projectNumber": 1,
+  "projectTitle": "ORYGIN Issue Management",
+  "lifecycleActor": "dsh-issue-management",
+  "priorityField": "Priority",
+  "allowUnassignedOwner": true,
+  "statuses": [
+    "Inbox",
+    "Backlog",
+    "Ready",
+    "In progress",
+    "In review",
+    "Done",
+    "No action"
+  ]
+}

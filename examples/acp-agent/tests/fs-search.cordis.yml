@@ -1,0 +1,32 @@
+# Minimal live counterpart for the glob-sampling snapshot composition.
+- id: llm-orygin
+  name: '@orygin-ai/dsh-llm-orygin'
+  config:
+    models:
+      - id: orygin-v4-pro
+
+- id: subprocess
+  name: '@orygin-ai/dsh-subprocess-local'
+
+- id: bash
+  name: '@orygin-ai/dsh-bash-local'
+
+- id: acp-agent
+  name: '@orygin-ai/dsh-acp-demo'
+  config:
+    provider: orygin-official
+    model: orygin-v4-pro
+    persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+    persistenceCompression: !!js "process.env.ORYGIN_SNAPSHOT === undefined ? 'zstd' : 'none'"
+    workspaceContext: false
+    skills:
+      enabled: false
+    toolJobs: false
+    goals: false
+    persona: You are a concise snapshot agent working in {{cwd}}.
+
+- id: tool-fs-search
+  name: '@orygin-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: true
+    globMaxResults: 4

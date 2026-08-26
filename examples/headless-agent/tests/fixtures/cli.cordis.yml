@@ -1,0 +1,29 @@
+- id: cli-mock-llm
+  name: './cli-mock-llm.ts'
+
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ../../cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: agent-spine
+        name: '@orygin-ai/dsh-agent-spine-demo'
+        config:
+          agents:
+            - id: main
+              provider: cli-mock
+              model: cli-mock
+              cwd: !!js process.cwd()
+          workspaceContext: false
+          dshHome: './.dsh-home'
+          skills:
+            filesystem:
+              agentsHome: './.agents-home'
+          persona: 'Keyless headless-agent smoke.'
+      - id: persistence
+        name: '@orygin-ai/dsh-session-persistence-jsonl'
+        config:
+          root: './.sessions'

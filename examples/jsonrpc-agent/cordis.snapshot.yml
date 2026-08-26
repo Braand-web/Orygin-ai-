@@ -1,0 +1,28 @@
+# Keyless replay includes the live `cordis.yml`, disables the key-requiring
+# Orygin adapter, and inserts `llm-replay` to serve recorded JSONL without a
+# key or network; every other entry remains shared. The replay provider
+# catalog claims the `orygin-official` provider so the SDK server's `initialize`
+# finds it owned and never mounts the real-adapter fallback. The SDK snapshot
+# suite passes this path explicitly through `ORYGIN_CORDIS_CONFIG` (the
+# jsonrpc-demo bin performs no ORYGIN_SNAPSHOT config swap of its own), and
+# `llm-replay` reads `ORYGIN_SNAPSHOT_FILE` / `ORYGIN_SNAPSHOT_CHILD_FILES` from the
+# harness. Stdout remains reserved for JSON-RPC frames.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      # `name` asserts the target: a mismatch skips the patch and warns only
+      # when a logger exists.
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash

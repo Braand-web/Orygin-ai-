@@ -1,0 +1,20 @@
+# Keyless replay keeps the complete minimal composition intact and replaces
+# only its live Orygin adapter with the fixture-backed provider. The replay
+# catalog claims the same route initialized by the SDK.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./minimal.cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash

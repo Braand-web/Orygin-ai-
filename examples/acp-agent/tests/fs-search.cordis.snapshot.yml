@@ -1,0 +1,35 @@
+# Minimal keyless composition: real app, bash, and search tool; replayed model.
+- id: llm-replay
+  name: '@orygin-ai/dsh-llm-replay'
+  config:
+    providers:
+      - id: orygin-official
+        name: Orygin
+        models:
+          - id: orygin-v4-pro
+
+- id: subprocess
+  name: '@orygin-ai/dsh-subprocess-local'
+
+- id: bash
+  name: '@orygin-ai/dsh-bash-local'
+
+- id: acp-agent
+  name: '@orygin-ai/dsh-acp-demo'
+  config:
+    provider: orygin-official
+    model: orygin-v4-pro
+    persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+    persistenceCompression: none
+    workspaceContext: false
+    skills:
+      enabled: false
+    toolJobs: false
+    goals: false
+    persona: You are a concise snapshot agent working in {{cwd}}.
+
+- id: tool-fs-search
+  name: '@orygin-ai/dsh-tool-fs-search'
+  config:
+    sampleOverCapGlobResults: true
+    globMaxResults: 4

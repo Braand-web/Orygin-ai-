@@ -1,0 +1,12 @@
+# Keyless provider-retry composition for the headless stream-json snapshot.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - insert:
+          - id: retry-snapshot-backend
+            name: './tests/fixtures/retry-snapshot-backend.mjs'

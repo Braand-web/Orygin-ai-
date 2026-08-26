@@ -1,0 +1,38 @@
+# Keyless both mode combines the runtime/registry patch with the Orygin-to-replay
+# swap. Include patches cannot target entries behind a nested include, so this file
+# applies both overlays directly to `cordis.yml`.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: 'none'
+          workspaceContext:
+            maxBytes: 65536
+          tools:
+            mode: both
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: code-runtime
+            name: '@orygin-ai/dsh-code-runtime-worker-thread'
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                    - id: orygin-v4-pro

@@ -1,0 +1,63 @@
+{
+  "name": "@orygin-ai/dsh-hooks-codex",
+  "description": "Bridge plugin: run a Codex hooks.json hook config on the Orygin interception seams",
+  "version": "0.1.1-rc.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braand-web/Orygin-ai-.git",
+    "directory": "packages/hooks/hooks-codex"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@orygin-ai/schemastery": "workspace:^"
+  },
+  "peerDependencies": {
+    "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-hook-protocol": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-session": "workspace:^",
+    "@orygin-ai/dsh-session-persistence": "workspace:^",
+    "@orygin-ai/dsh-tools": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  },
+  "devDependencies": {
+    "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-agent-loop": "workspace:^",
+    "@orygin-ai/dsh-agent-loop-testkit": "workspace:^",
+    "@orygin-ai/dsh-shell": "workspace:^",
+    "@orygin-ai/dsh-bash-local": "workspace:^",
+    "@orygin-ai/dsh-subprocess-local": "workspace:^",
+    "@orygin-ai/dsh-hook-protocol": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-session": "workspace:^",
+    "@orygin-ai/dsh-session-persistence": "workspace:^",
+    "@orygin-ai/dsh-session-persistence-jsonl": "workspace:^",
+    "@orygin-ai/dsh-tools": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  }
+}

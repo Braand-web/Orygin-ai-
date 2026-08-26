@@ -1,0 +1,89 @@
+# Unattended coding-agent deployment for the bundled dsh-jsonrpc-agent runtime.
+# stdout is reserved for JSON-RPC; do not add a console logger or terminal UI.
+
+- id: sdk-jsonrpc-server
+  name: '@orygin-ai/dsh-sdk-jsonrpc-server'
+  config:
+    maxTokensAsSuccess: !!js "process.env.ORYGIN_MAX_TOKENS_AS_SUCCESS === undefined ? true : JSON.parse(process.env.ORYGIN_MAX_TOKENS_AS_SUCCESS)"
+
+# The Orygin adapter. Shipped default: full thinking at max effort on every
+# request; exact-model resolution materializes request defaults before logging.
+# The model arrives per session over JSON-RPC, so it is not pinned here.
+- id: llm-orygin
+  name: '@orygin-ai/dsh-llm-orygin'
+  config:
+    thinking: enabled
+    reasoningEffort: max
+
+# Managed child-process groups for the bash executor (spawn/kill/output plumbing).
+- id: subprocess
+  name: '@orygin-ai/dsh-subprocess-local'
+
+- id: bash
+  name: '@orygin-ai/dsh-bash-local'
+  config:
+    cwd: !!js process.env.ORYGIN_CWD ?? process.cwd()
+    timeoutMs: 60000
+
+- id: agent-spine
+  name: '@orygin-ai/dsh-agent-spine-demo'
+  config:
+    persona: !!js process.env.ORYGIN_SYSTEM_PROMPT ?? 'You are a coding agent.'
+    workspaceContext: false
+    skills:
+      enabled: false
+    toolBash:
+      enableRunInBackground: false
+    toolJobs: false
+
+- id: sessions
+  name: '@orygin-ai/dsh-session-persistence-jsonl'
+  config:
+    root: !!js process.env.ORYGIN_SESSION_ROOT ?? './.sessions'
+    # Snapshot runs read the raw JSONL back; production keeps zstd frames.
+    compression: !!js "process.env.ORYGIN_SNAPSHOT === undefined ? 'zstd' : 'none'"
+
+- id: session-checkpoints
+  name: '@orygin-ai/dsh-session-checkpoint-policy'
+
+- id: subagent
+  name: '@orygin-ai/dsh-subagent'
+
+- id: subagent-spawn-in-process
+  name: '@orygin-ai/dsh-subagent-spawn-in-process'
+  config:
+    providerName: spawn
+
+- id: tool-subagent
+  name: '@orygin-ai/dsh-tool-subagent'
+  config:
+    provider: spawn
+    toolName: subagent
+    enableRunInBackground: false
+
+- id: tool-todo
+  name: '@orygin-ai/dsh-tool-todo'
+  config:
+    allowParallelInProgress: true
+
+- id: fs-local
+  name: '@orygin-ai/dsh-fs-local'
+  config:
+    cwd: !!js process.env.ORYGIN_CWD ?? process.cwd()
+
+- id: fs-observation-policy
+  name: '@orygin-ai/dsh-fs-observation-policy'
+
+- id: tool-fs
+  name: '@orygin-ai/dsh-tool-fs'
+
+- id: token-meter
+  name: '@orygin-ai/dsh-token-meter'
+
+- id: compaction-basic
+  name: '@orygin-ai/dsh-compaction-basic'
+  config:
+    thresholdRatio: 0.8
+    retainRatio: 0.16
+    maxTokens: 8192
+    compactionRetries: 1

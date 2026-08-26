@@ -1,0 +1,28 @@
+- banner:
+  - navigation "Session hierarchy":
+    - button "Reply with a one-sentence description" [disabled]
+  - img
+  - text: Standard mode
+  - button "Session log":
+    - text: Session log
+    - img
+  - tablist:
+    - tab "Chat" [selected]
+    - tab "Trajectory"
+- text: Reply with a one-sentence description of event sourcing, then stop. {{clock}}
+- button "Copy":
+  - img
+- button "Context injection @orygin-ai/dsh-system-prompt":
+  - img
+  - img
+  - text: Context injection @orygin-ai/dsh-system-prompt
+- paragraph: partial
+- status: Orygin diving...
+- textbox "Message the agent"
+- button "Commands":
+  - img
+- 'button "Access mode, current: Workspace Write"': Workspace Write
+- button "Select model, current Orygin-V4-Flash":
+  - text: Orygin-V4-Flash
+  - img
+- button "Stop generating"

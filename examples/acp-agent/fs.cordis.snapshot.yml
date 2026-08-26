@@ -1,0 +1,45 @@
+# Keyless filesystem snapshots apply the spill and replay overlays directly
+# because include patches cannot target entries behind a nested include. The
+# sandboxed filesystem stack already lives in the base cordis.yml. This file also
+# re-pins the acp-agent model to `orygin-v4-flash`: `cordis.yml` ships
+# `orygin-v4-pro`, but the recorded corpus was captured on flash, and a config
+# patch replaces the whole app config, so the base fields are restated verbatim.
+- id: base
+  name: '@orygin-ai/cordis-plugin-include'
+  config:
+    path: ./cordis.yml
+    patches:
+      - id: llm-orygin
+        name: '@orygin-ai/dsh-llm-orygin'
+        disabled: true
+      - id: acp-agent
+        name: '@orygin-ai/dsh-acp-demo'
+        config:
+          provider: orygin-official
+          model: orygin-v4-flash
+          persistenceRoot: !!js process.env.ORYGIN_SNAPSHOT_SESSIONS_ROOT ?? './.sessions'
+          persistenceCompression: none
+          workspaceContext:
+            maxBytes: 65536
+          persona: |
+            You are a coding assistant powered by the {{model}} model. Your working directory is {{cwd}}. Your bash tool runs under a file sandbox — a `[sandbox: file access denied …]` result is policy, not a command bug.
+
+            Verify your work by running the code or tests. Keep answers brief and factual.
+      - insert:
+          - id: spill-local
+            name: '@orygin-ai/dsh-spill-local'
+            config:
+              root: !!js process.env.ORYGIN_SNAPSHOT_SPILL_ROOT ?? './.spill'
+          - id: spill-policy
+            name: '@orygin-ai/dsh-spill-policy'
+            config:
+              maxInlineBytes: 800
+          - id: llm-replay
+            name: '@orygin-ai/dsh-llm-replay'
+            config:
+              providers:
+                - id: orygin-official
+                  name: Orygin
+                  models:
+                    - id: orygin-v4-flash
+                    - id: orygin-v4-pro

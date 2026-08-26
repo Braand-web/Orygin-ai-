@@ -1,0 +1,106 @@
+{
+  "name": "@orygin-ai/dsh-subagent",
+  "description": "Abstract subagent seam (ctx.subagents): named-provider registry for delegating to child agents",
+  "version": "0.1.1-rc.2",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Braand-web/Orygin-ai-.git",
+    "directory": "packages/subagent/subagent"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./invariant": {
+      "types": "./lib/types/invariant.d.ts",
+      "default": "./lib/invariant.js"
+    },
+    "./client": {
+      "types": "./lib/types/client.d.ts",
+      "default": "./lib/types/client.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/invariant.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-agent-presets": "workspace:^",
+    "@orygin-ai/dsh-brand": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-sandbox": "workspace:^",
+    "@orygin-ai/dsh-sandbox-policy": "workspace:^",
+    "@orygin-ai/dsh-scope": "workspace:^",
+    "@orygin-ai/dsh-session": "workspace:^",
+    "@orygin-ai/dsh-session-persistence": "workspace:^",
+    "@orygin-ai/dsh-session-projection": "workspace:^",
+    "@orygin-ai/dsh-session-projection-cache": "workspace:^",
+    "@orygin-ai/dsh-jobs": "workspace:^",
+    "@orygin-ai/dsh-tools": "workspace:^",
+    "@orygin-ai/dsh-user-approval": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  },
+  "peerDependenciesMeta": {
+    "@orygin-ai/dsh-agent-presets": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-sandbox": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-sandbox-policy": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-session-persistence": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-session-projection": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-session-projection-cache": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-jobs": {
+      "optional": true
+    },
+    "@orygin-ai/dsh-user-approval": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-agent-presets": "workspace:^",
+    "@orygin-ai/dsh-brand": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
+    "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-sandbox": "workspace:^",
+    "@orygin-ai/dsh-sandbox-policy": "workspace:^",
+    "@orygin-ai/dsh-scope": "workspace:^",
+    "@orygin-ai/dsh-session": "workspace:^",
+    "@orygin-ai/dsh-session-persistence": "workspace:^",
+    "@orygin-ai/dsh-session-projection": "workspace:^",
+    "@orygin-ai/dsh-session-projection-cache": "workspace:^",
+    "@orygin-ai/dsh-storage": "workspace:^",
+    "@orygin-ai/dsh-storage-domain": "workspace:^",
+    "@orygin-ai/dsh-jobs": "workspace:^",
+    "@orygin-ai/dsh-tools": "workspace:^",
+    "@orygin-ai/dsh-user-approval": "workspace:^",
+    "@orygin-ai/cordis": "workspace:^"
+  }
+}
