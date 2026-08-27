@@ -7,11 +7,17 @@ import {
 } from '@orygin-ai/dsh-host-apiproxy/api'
 import type { ClientConnectionRpc } from '../rpc.ts'
 import { randomUuid } from './random-uuid.ts'
-import { authHeaders } from './auth.ts'
+import { authHeaders, getAccessToken, isAuthEnabled, notifyAuthRequired } from './auth.ts'
 
 const INTERNAL_BASE = 'http://dsh.internal'
 const CHANNEL_PATTERN = /^\/[A-Za-z0-9._~-]+$/
 const ENDPOINT_SEGMENT_PATTERN = /^[A-Za-z0-9_$.-]+$/
+
+/** Safe no-op answers needed while the signed-out client plugin tree starts. */
+const GUEST_RPC_VALUES = new Map<string, unknown>([
+  ['dynamicCordisRunner/syncInspectManifest', null],
+  ['dynamicCordisRunner/inventory', []],
+])
 
 /** Transport this caller posts through; same signature as the global `fetch`. */
 export type RpcFetch = (input: URL, init: RequestInit) => Promise<Response>
@@ -26,6 +32,13 @@ export function createWebConnectionRpc(doFetch?: RpcFetch): ClientConnectionRpc 
   return {
     async call(channel, endpoint, payload, signal) {
       assertTarget(channel, endpoint)
+      if (isAuthEnabled() && getAccessToken() === undefined) {
+        if (GUEST_RPC_VALUES.has(endpoint)) {
+          return { ok: true, value: GUEST_RPC_VALUES.get(endpoint) }
+        }
+        notifyAuthRequired()
+        throw new Error(`transport failure for ${channel}/${endpoint}: HTTP 401`)
+      }
       const rpcId = RpcId(randomUuid())
       const message: ClientRequest = {
         type: 'client-request',

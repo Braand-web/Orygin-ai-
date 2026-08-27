@@ -217,7 +217,8 @@ describe('connection client apply', () => {
       requestAuth,
     }
     const fetch = vi.spyOn(globalThis, 'fetch')
-    const client = (await mount()).api as WebApiClient
+    const handle = await mount()
+    const client = handle.api as WebApiClient
 
     await expect(client.host.describe({})).resolves.toMatchObject({
       result: { ok: true, value: { cwd: '', home: '', attachedSessions: 0, canOpenPath: false } },
@@ -225,6 +226,8 @@ describe('connection client apply', () => {
     await expect(client.agentPresets.list({})).resolves.toMatchObject({
       result: { ok: true, value: { presets: [], authorable: false } },
     })
+    await expect(handle.rpc.call('/api', 'dynamicCordisRunner/syncInspectManifest', []))
+      .resolves.toEqual({ ok: true, value: null })
 
     const opened = vi.fn()
     const abort = new AbortController()
@@ -243,6 +246,25 @@ describe('connection client apply', () => {
 
     abort.abort()
     await expect(pending).resolves.toMatchObject({ done: true })
+    fetch.mockRestore()
+  })
+
+  it('gates generic guest actions without sending them to the Host', async () => {
+    ;(globalThis as Win).location = {
+      hostname: 'harness.example', search: '', origin: 'https://harness.example',
+    }
+    const requestAuth = vi.fn()
+    ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
+      getAccessToken: () => undefined,
+      requestAuth,
+    }
+    const fetch = vi.spyOn(globalThis, 'fetch')
+    const handle = await mount()
+
+    await expect(handle.rpc.call('/api', 'goals/create', { args: { agentId: 'guest' } }))
+      .rejects.toThrow('HTTP 401')
+    expect(requestAuth).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
     fetch.mockRestore()
   })
 
