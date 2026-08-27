@@ -5,7 +5,7 @@ import { AbstractApiClient } from './api.ts'
 import { hostFrameSchema, muxFrameSchema } from '@orygin-ai/dsh-host-apiproxy/api/events.schema'
 import { serverRequestSchema } from '@orygin-ai/dsh-host-apiproxy/api/rpc.schema'
 import { HOST_EVENTS_PATH, MUX_EVENTS_PATH } from '../api-path.ts'
-import { notifyAuthRequired, withAuth, withAuthQuery } from './auth.ts'
+import { getAccessToken, isAuthEnabled, notifyAuthRequired, withAuth, withAuthQuery } from './auth.ts'
 
 /** Unary calls that represent a user action rather than an initial read. */
 const AUTH_ACTION_PATHS = new Set([
@@ -23,12 +23,43 @@ const AUTH_ACTION_PATHS = new Set([
   '/api/agentPreset.openDocument', '/api/agentPreset.remove', '/api/llm.discoverModels',
 ])
 
+/**
+ * Sanitized boot reads for the signed-out product shell. These values are
+ * produced in the browser: a guest never reaches the authenticated Host and
+ * cannot observe its filesystem, sessions, settings, credentials, or models.
+ */
+const GUEST_RPC_VALUES = new Map<string, unknown>([
+  ['/api/host.describe', {
+    version: 'Orygin', cwd: '', attachedSessions: 0, home: '', canOpenPath: false,
+  }],
+  ['/api/dynamicCordisRunner/syncInspectManifest', null],
+  ['/api/dynamicCordisRunner/inventory', []],
+  ['/api/session.list', { items: [] }],
+  ['/api/workspace.list', { items: [], archivedSessionIds: [] }],
+  ['/api/agentPreset.list', { presets: [], authorable: false, hasDocument: false }],
+  ['/api/skill.list', { skills: [] }],
+  ['/api/settings.describe', { writable: false, hasDocument: false, namespaces: [] }],
+  ['/api/credentials.describe', { credentials: {} }],
+  ['/api/llm.providers', { providers: [] }],
+  ['/api/llm.models', { groups: [], failures: [] }],
+])
+
 type SocketItem<F> = { kind: 'frame'; envelope: RpcRequest<F> } | { kind: 'end' }
 type Parser<F> = { parse(value: unknown): F }
 
 /** Browser platform subclass: unary/respond use fetch; mux/host use downlink-only WebSockets. */
 export class WebApiClient extends AbstractApiClient {
   protected doFetch(input: URL, init?: RequestInit): Promise<Response> {
+    if (isAuthEnabled() && getAccessToken() === undefined) {
+      if (AUTH_ACTION_PATHS.has(input.pathname)) {
+        notifyAuthRequired()
+        return Promise.resolve(new Response('authentication required', { status: 401 }))
+      }
+      if (GUEST_RPC_VALUES.has(input.pathname)) {
+        const response = this.guestRpcResponse(init, GUEST_RPC_VALUES.get(input.pathname))
+        if (response !== undefined) return Promise.resolve(response)
+      }
+    }
     return globalThis.fetch(input, withAuth(init)).then((response) => {
       if (response.status === 401 && AUTH_ACTION_PATHS.has(input.pathname)) notifyAuthRequired()
       return response
@@ -40,6 +71,7 @@ export class WebApiClient extends AbstractApiClient {
     signal: AbortSignal,
     onOpen?: () => void,
   ): AsyncIterable<RpcRequest<MuxFrame>> {
+    if (isAuthEnabled() && getAccessToken() === undefined) return this.readGuestStream<MuxFrame>(signal, onOpen)
     return this.readWebSocket(MUX_EVENTS_PATH, signal, muxFrameSchema, onOpen)
   }
 
@@ -48,7 +80,34 @@ export class WebApiClient extends AbstractApiClient {
     signal: AbortSignal,
     onOpen?: () => void,
   ): AsyncIterable<RpcRequest<HostFrame>> {
+    if (isAuthEnabled() && getAccessToken() === undefined) return this.readGuestStream<HostFrame>(signal, onOpen)
     return this.readWebSocket(HOST_EVENTS_PATH, signal, hostFrameSchema, onOpen)
+  }
+
+  private guestRpcResponse(init: RequestInit | undefined, value: unknown): Response | undefined {
+    if (typeof init?.body !== 'string') return undefined
+    try {
+      const request = JSON.parse(init.body) as { rpcId?: unknown }
+      if (typeof request.rpcId !== 'string') return undefined
+      return Response.json({
+        type: 'server-response',
+        rpcId: request.rpcId,
+        result: { ok: true, value },
+      })
+    } catch {
+      return undefined
+    }
+  }
+
+  private async *readGuestStream<F>(
+    signal: AbortSignal,
+    onOpen?: () => void,
+  ): AsyncGenerator<RpcRequest<F>> {
+    onOpen?.()
+    if (signal.aborted) return
+    await new Promise<void>((resolve) => {
+      signal.addEventListener('abort', () => { resolve() }, { once: true })
+    })
   }
 
   private async *readWebSocket<F extends MuxFrame | HostFrame>(

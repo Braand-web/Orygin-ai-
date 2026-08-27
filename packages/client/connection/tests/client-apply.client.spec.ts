@@ -12,6 +12,12 @@ import { WebApiClient } from '../src/client/web-api-client.ts'
 
 type Win = { location?: { hostname: string; search: string; origin?: string } }
 type WebSocketGlobal = { WebSocket?: typeof WebSocket }
+type AuthGlobal = {
+  __ORYGIN_AUTH__?: {
+    getAccessToken?: () => string | undefined
+    requestAuth?: () => void
+  }
+}
 
 const originalWebSocket = globalThis.WebSocket
 const sockets: FakeWebSocket[] = []
@@ -49,10 +55,15 @@ class FakeWebSocket extends EventTarget {
 
 afterEach(() => {
   delete (globalThis as Win).location
+  delete (globalThis as AuthGlobal).__ORYGIN_AUTH__
   sockets.length = 0
   if (originalWebSocket === undefined) delete (globalThis as WebSocketGlobal).WebSocket
   else globalThis.WebSocket = originalWebSocket
 })
+
+function setAuthenticated(token = 'test-token'): void {
+  ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = { getAccessToken: () => token }
+}
 
 async function mount(): Promise<ConnectionHandle> {
   const ctx = new Context()
@@ -172,6 +183,7 @@ describe('connection client apply', () => {
 
   it('WebApiClient keeps unary calls and respond on globalThis.fetch', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost', search: '' }
+    setAuthenticated()
     const handle = await mount()
     const original = globalThis.fetch
     const seen: string[] = []
@@ -194,11 +206,52 @@ describe('connection client apply', () => {
     expect(seen.some(u => u.includes('/api/respond'))).toBe(true)
   })
 
+  it('starts the real client with a private empty guest projection and gates protected actions', async () => {
+    ;(globalThis as Win).location = {
+      hostname: 'harness.example', search: '', origin: 'https://harness.example',
+    }
+    ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
+    const requestAuth = vi.fn()
+    ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
+      getAccessToken: () => undefined,
+      requestAuth,
+    }
+    const fetch = vi.spyOn(globalThis, 'fetch')
+    const client = (await mount()).api as WebApiClient
+
+    await expect(client.host.describe({})).resolves.toMatchObject({
+      result: { ok: true, value: { cwd: '', home: '', attachedSessions: 0, canOpenPath: false } },
+    })
+    await expect(client.agentPresets.list({})).resolves.toMatchObject({
+      result: { ok: true, value: { presets: [], authorable: false } },
+    })
+
+    const opened = vi.fn()
+    const abort = new AbortController()
+    const iterator = client.events.mux({}, abort.signal, opened)[Symbol.asyncIterator]()
+    const pending = iterator.next()
+    await vi.waitFor(() => { expect(opened).toHaveBeenCalledOnce() })
+    expect(sockets).toHaveLength(0)
+
+    await expect(client.respond({
+      type: 'client-response',
+      rpcId: RpcId('guest-response'),
+      result: { ok: true, value: {} },
+    })).rejects.toThrow('HTTP 401')
+    expect(requestAuth).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
+
+    abort.abort()
+    await expect(pending).resolves.toMatchObject({ done: true })
+    fetch.mockRestore()
+  })
+
   it('opens one WebSocket per downlink, parses frames, and aborts both without using fetch', async () => {
     ;(globalThis as Win).location = {
       hostname: 'localhost', search: '', origin: 'http://localhost:3080',
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
+    setAuthenticated()
     const fetch = vi.spyOn(globalThis, 'fetch')
     const client = (await mount()).api as WebApiClient
     const envelopes: RpcMessage[][] = []
@@ -212,8 +265,8 @@ describe('connection client apply', () => {
     const hostFrame = host.next()
     await vi.waitFor(() => { expect(sockets).toHaveLength(2) })
     expect(sockets.map(socket => socket.url)).toEqual([
-      'ws://localhost:3080/api/events.mux',
-      'ws://localhost:3080/api/events.host',
+      'ws://localhost:3080/api/events.mux?access_token=test-token',
+      'ws://localhost:3080/api/events.host?access_token=test-token',
     ])
     await vi.waitFor(() => { expect(opened).toEqual(['mux', 'host']) })
 
@@ -258,11 +311,14 @@ describe('connection client apply', () => {
       hostname: 'harness.example', search: '', origin: 'https://harness.example',
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
+    setAuthenticated()
     const client = (await mount()).api
     const abort = new AbortController()
     const iterator = client.events.mux({}, abort.signal)[Symbol.asyncIterator]()
     const pending = iterator.next()
-    await vi.waitFor(() => { expect(sockets[0]?.url).toBe('wss://harness.example/api/events.mux') })
+    await vi.waitFor(() => {
+      expect(sockets[0]?.url).toBe('wss://harness.example/api/events.mux?access_token=test-token')
+    })
     abort.abort()
     await expect(pending).resolves.toMatchObject({ done: true })
   })
@@ -272,6 +328,7 @@ describe('connection client apply', () => {
       hostname: 'localhost', search: '', origin: 'http://localhost:3080',
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
+    setAuthenticated()
     const client = (await mount()).api
     const abort = new AbortController()
     abort.abort()

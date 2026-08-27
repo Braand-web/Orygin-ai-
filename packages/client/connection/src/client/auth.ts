@@ -7,6 +7,11 @@ interface AuthGlobal {
   }
 }
 
+/** Whether the web application installed an authentication boundary. */
+export function isAuthEnabled(): boolean {
+  return (globalThis as AuthGlobal).__ORYGIN_AUTH__ !== undefined
+}
+
 /** Read the current short-lived Supabase access token without storing it here. */
 export function getAccessToken(): string | undefined {
   return (globalThis as AuthGlobal).__ORYGIN_AUTH__?.getAccessToken?.()
