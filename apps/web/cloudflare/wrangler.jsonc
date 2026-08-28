@@ -16,6 +16,23 @@
       "zone_id": "77f3a2360d6b6e9c35ea3c38b884aa92"
     }
   ],
+  "vars": {
+    "SUPABASE_URL": "https://ldkxyrijcofjdhfqshho.supabase.co"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WS_TICKETS",
+        "class_name": "WebSocketTicketStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1_ws_tickets",
+      "new_sqlite_classes": ["WebSocketTicketStore"]
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

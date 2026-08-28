@@ -161,6 +161,12 @@
 
     # Owns both ends of the web transport: node half binds the gateway to the
     # webserver under /api; browser half is the fetch/SSE client.
+    - id: authorization-supabase
+      name: '@orygin-ai/dsh-authorization-supabase'
+
+    - id: billing-supabase
+      name: '@orygin-ai/dsh-billing-supabase'
+
     - id: connection
       name: '@orygin-ai/dsh-client-connection'
       inject: [webRuntime]

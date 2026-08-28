@@ -47,6 +47,8 @@
     "@orygin-ai/dsh-agent-presets": "workspace:^",
     "@orygin-ai/dsh-api-remotes": "workspace:^",
     "@orygin-ai/dsh-app-boot": "workspace:^",
+    "@orygin-ai/dsh-authorization-supabase": "workspace:^",
+    "@orygin-ai/dsh-billing-supabase": "workspace:^",
     "@orygin-ai/dsh-client-connection": "workspace:^",
     "@orygin-ai/dsh-client-hmr": "workspace:^",
     "@orygin-ai/dsh-client-locale": "workspace:^",

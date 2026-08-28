@@ -16,7 +16,16 @@ import type {
   RequestErrorAction,
 } from '@orygin-ai/dsh-agent'
 import { Inbox, agentEvents, assembleContextFor } from '@orygin-ai/dsh-agent'
-import type { GenerateOptions, LlmCallConfig, Message, PreparedLlmCall } from '@orygin-ai/dsh-llm'
+import { randomUUID } from 'node:crypto'
+import type { BillingPolicy } from '@orygin-ai/dsh-billing'
+import type {} from '@orygin-ai/dsh-billing'
+import type {
+  GenerateOptions,
+  LlmAccountingContext,
+  LlmCallConfig,
+  Message,
+  PreparedLlmCall,
+} from '@orygin-ai/dsh-llm'
 import {
   BlockAssembler,
   LlmError,
@@ -50,6 +59,12 @@ type StepEndReason = Extract<TurnEndReason, { kind: 'completed' | 'max-tokens' }
 type PreparedStep =
   | { kind: 'reject' }
   | { kind: 'enter'; messages: UserMessage[]; assembly: PromptAssembly }
+
+interface TurnBillingState {
+  readonly rootRunId: string
+  reserved: boolean
+  policy?: BillingPolicy
+}
 
 /** Remove adapter-derived values before plugins propose the next request config. */
 function requestProposal(header: EpochHeader): LlmCallConfig {
@@ -258,6 +273,10 @@ export class ReactLoopAgent implements Agent {
     }
     phase.turn = turn
     let turnEnds: TurnEndReason | null = null
+    let turnFailure: unknown
+    const billingState: TurnBillingState | undefined = this.options.billingIdentity === undefined
+      ? undefined
+      : { rootRunId: randomUUID(), reserved: false }
     let target: InboxTarget = 'next-turn'
     try {
       while (true) {
@@ -284,7 +303,7 @@ export class ReactLoopAgent implements Agent {
           }
           // max-tokens is sticky: once any step hits the ceiling, later steps
           // that complete normally must not downgrade the turn outcome.
-          const stepEnd = await this.step(decision.assembly)
+          const stepEnd = await this.step(decision.assembly, billingState)
           // max-tokens stays sticky: a later completed step must not
           // downgrade the turn outcome.
           if (turnEnds === null || turnEnds.kind !== 'max-tokens') turnEnds = stepEnd
@@ -300,6 +319,7 @@ export class ReactLoopAgent implements Agent {
         target = 'next-step'
       }
     } catch (error: unknown) {
+      turnFailure = error
       if (signal.aborted) {
         turnEnds = { kind: 'aborted', reason: signal.reason as AgentCancelCause }
         throw error
@@ -314,11 +334,38 @@ export class ReactLoopAgent implements Agent {
       }
       this.throwError(error)
     } finally {
+      let settlementFailure: unknown
+      if (billingState?.reserved === true) {
+        const billing = this.loopCtx.get('billing')
+        if (billing === undefined) {
+          settlementFailure = new LlmError(
+            'Attributed agent turn has no durable billing service',
+            'BILLING_UNAVAILABLE',
+          )
+        } else {
+          try {
+            await billing.settle(billingState.rootRunId)
+          } catch (error: unknown) {
+            settlementFailure = error
+          }
+        }
+        if (settlementFailure !== undefined && turnFailure === undefined) {
+          turnEnds = {
+            kind: 'error',
+            error: settlementFailure instanceof LlmError
+              ? settlementFailure.failure
+              : { message: errorChain(settlementFailure), code: 'BILLING_UNAVAILABLE' },
+          }
+        }
+      }
       try {
         // oxlint-disable-next-line typescript/no-non-null-assertion -- every exit assigns a turn ending
         this.session.append('turn/end', { turn, reason: turnEnds! })
       } catch (error: unknown) {
         this.throwError(error)
+      }
+      if (settlementFailure !== undefined && turnFailure === undefined) {
+        this.throwError(settlementFailure)
       }
     }
     if (!this.inbox.hasPending) return false
@@ -329,17 +376,23 @@ export class ReactLoopAgent implements Agent {
     return true
   }
 
-  private async step(assembly: PromptAssembly): Promise<StepEndReason | null> {
+  private async step(
+    assembly: PromptAssembly,
+    billingState?: TurnBillingState,
+  ): Promise<StepEndReason | null> {
     /* v8 ignore next -- private callers establish the running phase before executing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": step outside running phase`)
     const { turn, step, abort: { signal } } = this.phase
     signal.throwIfAborted()
     const system = renderPrompt(assembly)
+    const runId = billingState === undefined ? undefined : randomUUID()
 
     while (true) {
+      const accounting = this.accountingContext(billingState, runId, turn, step)
       const { request, preparedCall } = await this.buildRequest(
-        turn, step, assembly.tools, system, this.session.deriveMessages(), signal,
+        turn, step, assembly.tools, system, this.session.deriveMessages(), signal, accounting,
       )
+      await this.reserveTurnBilling(billingState, request, assembly.tools)
       const assembler = new BlockAssembler()
       const chunkSeqs: number[] = []
       try {
@@ -419,6 +472,65 @@ export class ReactLoopAgent implements Agent {
     }
   }
 
+  /** Build one attempt identity from immutable server-owned agent attribution. */
+  private accountingContext(
+    state: TurnBillingState | undefined,
+    runId: string | undefined,
+    turn: number,
+    step: number,
+  ): LlmAccountingContext | undefined {
+    const identity = this.options.billingIdentity
+    if (state === undefined || runId === undefined || identity === undefined) return undefined
+    return {
+      tenantId: identity.tenantId,
+      userId: identity.userId,
+      sessionId: this.session.id,
+      rootRunId: state.rootRunId,
+      runId,
+      turnId: `${this.session.id}:${String(turn)}`,
+      stepId: `${this.session.id}:${String(turn)}:${String(step)}`,
+      attemptId: randomUUID(),
+      purpose: 'agent',
+      billingMode: identity.billingMode,
+    }
+  }
+
+  /** Reserve the plan's complete per-run ceiling before the first paid attempt. */
+  private async reserveTurnBilling(
+    state: TurnBillingState | undefined,
+    request: GenerateOptions,
+    tools: GenerateOptions['tools'] & object,
+  ): Promise<void> {
+    if (state === undefined || state.reserved) return
+    const identity = this.options.billingIdentity
+    const accounting = request.accounting
+    const billing = this.loopCtx.get('billing')
+    if (identity === undefined || accounting === undefined || billing === undefined) {
+      throw new LlmError(
+        'Cloud agent request is missing durable billing attribution',
+        'BILLING_UNAVAILABLE',
+      )
+    }
+    const policy = state.policy ?? await billing.policy(identity)
+    state.policy = policy
+    if (identity.billingMode === 'byok' && !policy.byokOpenRouter) {
+      throw new LlmError('The active plan does not permit OpenRouter BYOK', 'ENTITLEMENT_REQUIRED')
+    }
+    await billing.reserve({
+      ...accounting,
+      runId: state.rootRunId,
+      modelId: request.model,
+      estimatedVariableCostMicros: policy.costBudgetMicrosPerCredit,
+      maximumVariableCostMicros: policy.costBudgetMicrosPerCredit * policy.runLimitCredits,
+      ...request.maxTokens === undefined ? {} : { maximumOutputTokens: request.maxTokens },
+      toolNames: tools.map(tool => tool.name),
+      costBudgetMicrosPerCredit: policy.costBudgetMicrosPerCredit,
+      runLimitCredits: policy.runLimitCredits,
+      idempotencyKey: `run:${state.rootRunId}`,
+    })
+    state.reserved = true
+  }
+
   /**
    * Compose one frozen request and bind it to the adapter registration that
    * resolved its exact-model defaults.
@@ -430,6 +542,7 @@ export class ReactLoopAgent implements Agent {
     system: string,
     boundaryMessages: Message[],
     signal: AbortSignal,
+    accounting?: LlmAccountingContext,
   ): Promise<{ request: GenerateOptions; preparedCall?: PreparedLlmCall }> {
     const { session } = this
 
@@ -508,6 +621,7 @@ export class ReactLoopAgent implements Agent {
       ...header.system !== undefined ? { system: header.system } : {},
       ...header.tools !== undefined ? { tools: header.tools } : {},
       sessionId: this.session.id,
+      ...accounting === undefined ? {} : { accounting },
       signal,
     }))
     return { request, ...preparedCall === undefined ? {} : { preparedCall } }

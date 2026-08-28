@@ -56,6 +56,7 @@
  */
 
 import type { Context } from '@orygin-ai/cordis'
+import type {} from '@orygin-ai/dsh-billing'
 import { launchEnvironmentOf } from '@orygin-ai/dsh-launch-environment'
 import { assertUsableApiKey, LlmError } from '@orygin-ai/dsh-llm'
 import type { AdapterRegistrationHandle, DirectoryRegistrationHandle, LlmConfigurableProvider } from '@orygin-ai/dsh-llm'
@@ -202,6 +203,17 @@ export function apply(ctx: Context, config: Config): void {
         `llm-pi-ai: unusable replay state on assistant history for route "${provider}/${model}";`
         + ` sending that message as provider-neutral content (${reason})`,
       )
+    },
+    onProviderUsage: async (receipt) => {
+      const billing = ctx.get('billing')
+      if (billing === undefined) {
+        if (process.env.BILLING_ENFORCEMENT === '1') {
+          throw new LlmError('Attributed provider usage has no durable billing service', 'BILLING_UNAVAILABLE')
+        }
+      } else {
+        await billing.recordProviderUsage(receipt)
+      }
+      ctx.emit('llm/provider-usage', receipt)
     },
   })
   // Independent of the route set: signing in is what makes a route worth

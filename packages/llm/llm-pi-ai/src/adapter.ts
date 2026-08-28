@@ -51,10 +51,13 @@ import type {
   LlmProviderInfo,
   LlmResolvedModelInfo,
   PreparedAdapterCall,
+  ProviderUsageReceipt,
   ReasoningEffortId as ReasoningEffortIdType,
   ResolvedRetryPolicy,
   StreamChunk,
 } from '@orygin-ai/dsh-llm'
+import { usdToMicros } from '@orygin-ai/dsh-llm'
+import type { Usage as PiUsage } from '@earendil-works/pi-ai'
 import type { AttachmentStore } from '@orygin-ai/dsh-attachment'
 import { idleWatchdog, timeoutOf } from '@orygin-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
@@ -98,6 +101,8 @@ export interface PiAiAdapterOptions {
    * conversion because its stored replay state is unusable by this build.
    */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Receive one internal accounting receipt per attributed provider attempt. */
+  onProviderUsage?: (receipt: ProviderUsageReceipt) => void | Promise<void>
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -374,7 +379,24 @@ export class PiAiAdapter extends LlmAdapter {
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
       })
-      const iterator = toStreamChunks(events, model.contextWindow)[Symbol.asyncIterator]()
+      const recordUsage = options.accounting === undefined || options.provider !== 'openrouter'
+        ? undefined
+        : async (usage: PiUsage): Promise<void> => {
+          const accounting = options.accounting
+          if (accounting === undefined) return
+          await this.config.onProviderUsage?.({
+            ...accounting,
+            provider: 'openrouter',
+            modelId: options.model,
+            inputTokens: usage.input,
+            cachedInputTokens: usage.cacheRead,
+            outputTokens: usage.output,
+            reasoningTokens: 0,
+            openrouterDebitMicros: usdToMicros(usage.cost.total),
+            currency: 'USD',
+          })
+        }
+      const iterator = toStreamChunks(events, model.contextWindow, recordUsage)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {

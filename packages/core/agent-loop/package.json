@@ -32,6 +32,7 @@
   "license": "MIT",
   "peerDependencies": {
     "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-billing": "workspace:^",
     "@orygin-ai/dsh-invariants": "workspace:^",
     "@orygin-ai/dsh-llm": "workspace:^",
     "@orygin-ai/dsh-scope": "workspace:^",
@@ -47,6 +48,7 @@
   },
   "devDependencies": {
     "@orygin-ai/dsh-agent": "workspace:^",
+    "@orygin-ai/dsh-billing": "workspace:^",
     "@orygin-ai/dsh-invariants": "workspace:^",
     "@orygin-ai/dsh-llm": "workspace:^",
     "@orygin-ai/dsh-scope": "workspace:^",

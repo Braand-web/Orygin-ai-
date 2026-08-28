@@ -175,6 +175,22 @@ class MemoryPersistence extends SessionPersistence implements PersistenceBackend
   }
 }
 
+describe('tenant persistence scope', () => {
+  it('keeps local backends explicit and rejects accidental cloud use', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const fiber = await ctx.plugin(MemoryPersistence)
+
+    const local = ctx.sessionPersistence.forTenant({ tenantId: 'local' })
+    expect(local.supportsRawArtifacts).toBe(false)
+    expect(() => ctx.sessionPersistence.forTenant({
+      tenantId: '11111111-1111-4111-8111-111111111111',
+    })).toThrow(/local-only/)
+
+    await fiber.dispose()
+  })
+})
+
 /** Controllable storage primitive for serialization and retirement failure tests. */
 class ControlledBackend implements PersistenceBackend<never> {
   readonly name = 'session-persistence-controlled'

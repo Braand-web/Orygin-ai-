@@ -49,6 +49,10 @@ interface CredentialInfo {
 
 `credentials/reference-updated (ref)` fires after a committed change to a provider-managed source — a `set`, an `unset`, or an external edit observed in storage. Ambient process-environment changes are not observable and never emit. Consumers do not need the event (they re-resolve per operation); it exists for configuration surfaces refreshing a "configured" badge.
 
+## Tenant resource authorization
+
+The cloud profile keeps credential acquisition separate from tenant authorization. `ctx.resourceAuthorization` verifies an authenticated principal's active membership and exact ownership before a workspace, session, run, or provider credential is read or mutated. Its production provider delegates the decision to a service-role-only PostgreSQL function and fails closed on invalid identities, transport failures, or malformed responses.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -211,6 +215,26 @@ abstract deleteRecord(key: CredentialKey): Promise<void>
 ```
 
 Source: [`packages/credentials/credentials/src/index.ts`](../../packages/credentials/credentials/src/index.ts)
+
+<a id="ctxresourceauthorization--resourceauthorizationservice-abstract-seam"></a>
+
+### `ctx.resourceAuthorization` — `ResourceAuthorizationService` (abstract seam)
+
+Server-only ownership checks for cold or database-backed tenant resources.
+
+```ts cordis-catalog
+/**
+ * Decide whether a verified principal may address one resource.
+ * @param principal - server-derived tenant membership.
+ * @param kind - resource family being addressed.
+ * @param resourceId - opaque UUID supplied as an address, never as authority.
+ * @param action - requested operation.
+ * @returns `true` only when active ownership and membership both hold.
+ */
+abstract authorize( principal: AuthPrincipal, kind: AuthorizedResourceKind, resourceId: string, action: ResourceAction, ): Promise<boolean>
+```
+
+Source: [`packages/security/request-context/src/index.ts`](../../packages/security/request-context/src/index.ts)
 
 <a id="authorization-events"></a>
 

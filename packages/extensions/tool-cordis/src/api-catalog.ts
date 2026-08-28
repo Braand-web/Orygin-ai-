@@ -502,6 +502,59 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'billing',
+    summary: 'Billing implementations own durability, idempotency, and wallet locking.',
+    description: 'Billing implementations own durability, idempotency, and wallet locking. Provider adapters only emit receipts; they never mutate balances directly.',
+    methods: [
+      {
+        signature: 'abstract policy(identity: { readonly tenantId: string readonly userId: string }): Promise<BillingPolicy>',
+        description: 'Resolve current plan limits at the same durable boundary that enforces them.',
+        parameters: [{ name: 'identity', description: 'server-derived tenant membership.' }],
+        returns: 'the active immutable plan version and its limits.',
+      },
+      {
+        signature: 'abstract estimate(input: BillingRunInput): Promise<RunEstimate>',
+        description: 'Estimate a bounded root run before any paid provider call.',
+        parameters: [{ name: 'input', description: 'attributed run and commercial limits.' }],
+        returns: 'public credits and the maximum permitted variable cost.',
+      },
+      {
+        signature: 'abstract reserve(input: BillingRunInput & { readonly idempotencyKey: string }): Promise<CreditReservation>',
+        description: 'Atomically reserve credits before the first paid attempt.',
+        parameters: [{ name: 'input', description: 'attributed run, limits, and unique operation key.' }],
+        returns: 'the active durable reservation.',
+      },
+      {
+        signature: 'abstract extend(input: ReservationExtension): Promise<CreditReservation>',
+        description: 'Extend the existing reservation before a retry or sub-agent.',
+        parameters: [{ name: 'input', description: 'additional credits and unique operation key.' }],
+        returns: 'the updated durable reservation.',
+      },
+      {
+        signature: 'abstract recordProviderUsage(receipt: ProviderUsageReceipt): Promise<void>',
+        description: 'Persist one idempotent provider attempt receipt.',
+        parameters: [{ name: 'receipt', description: 'provider usage for one attributed attempt.' }],
+      },
+      {
+        signature: 'abstract recordInfrastructureUsage(receipt: InfrastructureUsageReceipt): Promise<void>',
+        description: 'Persist one idempotent sandbox or paid-tool receipt.',
+        parameters: [{ name: 'receipt', description: 'infrastructure usage for one attributed attempt.' }],
+      },
+      {
+        signature: 'abstract settle(runId: string): Promise<RunSettlement>',
+        description: 'Aggregate and settle the root run, rounding credits exactly once.',
+        parameters: [{ name: 'runId', description: 'root run to settle.' }],
+        returns: 'final debit or pending reconciliation state.',
+      },
+      {
+        signature: 'abstract refund(input: RefundInput): Promise<LedgerEntry>',
+        description: 'Append a compensating entry without mutating financial history.',
+        parameters: [{ name: 'input', description: 'original run, amount, reason, and unique operation key.' }],
+        returns: 'the compensating ledger entry.',
+      },
+    ],
+  },
+  {
     key: 'clientModules',
     summary: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows.',
     description: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).',
@@ -1135,6 +1188,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'resourceAuthorization',
+    summary: 'Server-only ownership checks for cold or database-backed tenant resources.',
+    description: 'Server-only ownership checks for cold or database-backed tenant resources.',
+    methods: [
+      {
+        signature: 'abstract authorize( principal: AuthPrincipal, kind: AuthorizedResourceKind, resourceId: string, action: ResourceAction, ): Promise<boolean>',
+        description: 'Decide whether a verified principal may address one resource.',
+        parameters: [{ name: 'principal', description: 'server-derived tenant membership.' }, { name: 'kind', description: 'resource family being addressed.' }, { name: 'resourceId', description: 'opaque UUID supplied as an address, never as authority.' }, { name: 'action', description: 'requested operation.' }],
+        returns: '`true` only when active ownership and membership both hold.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -1181,6 +1247,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Durable append-only session storage.',
     description: 'Durable append-only session storage. Implementations preserve contiguous, losslessly JSON-serializable events; append resolves only after durability, and load balances a complete interrupted tail without rewriting committed events.',
     methods: [
+      {
+        signature: 'forTenant(scope: PersistenceScope): ScopedSessionPersistence',
+        description: 'Bind every persistence operation to one server-derived tenant. Local backends intentionally serve only the explicit `local` scope; cloud backends override this method and return an enforcing facade.',
+        parameters: [{ name: 'scope', description: 'trusted tenant ownership scope.' }],
+        returns: 'persistence operations incapable of escaping that tenant.',
+      },
       {
         signature: 'abstract locate(meta: SessionHeader): SessionLocation | undefined',
         description: 'Resolve this backend\'s independent local artifact for a session without reading, creating, flushing, or otherwise materializing it. Backends such as SQLite that do not own one artifact per session return `undefined`.',
@@ -2614,6 +2686,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'llm/provider-usage',
+    mode: 'emit',
+    signature: '\'llm/provider-usage\'(receipt: ProviderUsageReceipt): void',
+    summary: 'Internal receipt emitted once for each provider attempt with accounting context.',
+    description: 'Internal receipt emitted once for each provider attempt with accounting context. Observer failures cannot change the provider result.',
+    parameters: [{ name: 'receipt', description: 'immutable usage and cost facts for one provider attempt.' }],
+  },
+  {
     name: 'llm/stream',
     mode: 'waterfall',
     signature: '\'llm/stream\'(this: LlmRuntime, options: GenerateOptions, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk>',
@@ -2850,6 +2930,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface Agent {\n    readonly id: SessionId;\n    readonly options: AgentOptions;\n    readonly session: Session;\n    readonly inbox: Inbox;\n    readonly status: AgentStatus;\n    readonly ctx: Context;\n    cancel(cause: AgentCancelCause, options?: CancelOptions): void;\n    whenIdle(): Promise<void>;\n    runMaintenance<T>(task: (signal: AbortSignal) => Promise<T>): Promise<T>;\n    send(message: UserMessage, target: InboxTarget, wakeup: boolean): void;\n    followup(message: UserMessage): void;\n    steer(message: UserMessage): void;\n    inject(message: UserMessage): void;\n}',
   },
   {
+    name: 'AgentBillingIdentity',
+    declaration: 'export interface AgentBillingIdentity {\n    readonly tenantId: string;\n    readonly userId: string;\n    readonly billingMode: \'orygin\' | \'byok\';\n}',
+  },
+  {
     name: 'AgentCancelCause',
     declaration: 'export type AgentCancelCause = {\n    readonly kind: \'user\';\n} | {\n    readonly kind: \'parent\';\n} | {\n    readonly kind: \'hook\';\n    readonly reason: string;\n} | {\n    readonly kind: \'disposed\';\n};',
   },
@@ -2863,7 +2947,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentOptions',
-    declaration: 'export interface AgentOptions {\n    provider?: string;\n    model?: string;\n    maxTokens?: number;\n}',
+    declaration: 'export interface AgentOptions {\n    provider?: string;\n    model?: string;\n    maxTokens?: number;\n    billingIdentity?: AgentBillingIdentity;\n}',
   },
   {
     name: 'AgentPreset',
@@ -2998,6 +3082,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AuthorizationStatus = \'authorized\' | \'cancelled\';',
   },
   {
+    name: 'AuthorizedResourceKind',
+    declaration: 'export type AuthorizedResourceKind = \'workspace\' | \'session\' | \'run\' | \'credential\';',
+  },
+  {
+    name: 'AuthPrincipal',
+    declaration: 'export interface AuthPrincipal {\n    readonly userId: string;\n    readonly tenantId: string;\n    readonly authSessionId: string;\n    readonly roles: readonly AuthRole[];\n    readonly emailVerified: boolean;\n}',
+  },
+  {
+    name: 'AuthRole',
+    declaration: 'export type AuthRole = \'owner\' | \'admin\' | \'support\';',
+  },
+  {
     name: 'BackendRegistry',
     declaration: 'export class BackendRegistry {\n    register(name: string, backend: StorageBackend): () => void;\n    get(name: string): StorageBackend;\n    names(): string[];\n}',
   },
@@ -3012,6 +3108,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'BashEnvVariableInfo',
     declaration: 'export interface BashEnvVariableInfo extends BashEnvVariable {\n    contributor: string;\n    key: DshEnvironmentKey;\n}',
+  },
+  {
+    name: 'BillingPolicy',
+    declaration: 'export interface BillingPolicy {\n    readonly planVersionId: string;\n    readonly planCode: \'free\' | \'pro\' | \'power\' | \'ultra\';\n    readonly costBudgetMicrosPerCredit: bigint;\n    readonly runLimitCredits: bigint;\n    readonly maxConcurrentRuns: number;\n    readonly byokOpenRouter: boolean;\n}',
+  },
+  {
+    name: 'BillingRunInput',
+    declaration: 'export interface BillingRunInput extends LlmAccountingContext {\n    readonly modelId: string;\n    readonly estimatedVariableCostMicros: bigint;\n    readonly maximumVariableCostMicros: bigint;\n    readonly maximumOutputTokens?: number;\n    readonly toolNames: readonly string[];\n    readonly costBudgetMicrosPerCredit: bigint;\n    readonly runLimitCredits: bigint;\n    readonly reservationTtlSeconds?: number;\n}',
   },
   {
     name: 'Branded',
@@ -3226,6 +3330,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
+    name: 'CreditReservation',
+    declaration: 'export interface CreditReservation {\n    readonly id: string;\n    readonly tenantId: string;\n    readonly runId: string;\n    readonly reservedCredits: bigint;\n    readonly expiresAt: string;\n    readonly status: \'active\' | \'pending_reconciliation\';\n}',
+  },
+  {
     name: 'DiffCallView',
     declaration: 'export interface DiffCallView {\n    card: \'diff\';\n    title: string;\n    diffs: FileDiff[];\n    locations?: FileLocation[];\n}',
   },
@@ -3403,7 +3511,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GenerateOptions',
-    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n}',
+    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n    accounting?: LlmAccountingContext;\n}',
   },
   {
     name: 'GenericCallView',
@@ -3488,6 +3596,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'IndexInjectionPlacement',
     declaration: 'export type IndexInjectionPlacement = \'head\' | \'body\';',
+  },
+  {
+    name: 'InfrastructureUsageReceipt',
+    declaration: 'export interface InfrastructureUsageReceipt {\n    readonly tenantId: string;\n    readonly rootRunId: string;\n    readonly runId: string;\n    readonly attemptId: string;\n    readonly kind: \'sandbox\' | \'paid-tool\';\n    readonly costMicros: bigint;\n    readonly idempotencyKey: string;\n}',
   },
   {
     name: 'InvariantFailure',
@@ -3592,6 +3704,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'KvUnitDescriptor',
     declaration: 'export interface KvUnitDescriptor {\n    readonly name: string;\n    readonly version: number;\n    readonly tables: readonly string[];\n    readonly hasGlobal: boolean;\n}',
+  },
+  {
+    name: 'LedgerEntry',
+    declaration: 'export interface LedgerEntry {\n    readonly id: string;\n    readonly tenantId: string;\n    readonly amountCredits: bigint;\n    readonly reason: string;\n    readonly createdAt: string;\n}',
+  },
+  {
+    name: 'LlmAccountingContext',
+    declaration: 'export interface LlmAccountingContext {\n    readonly tenantId: string;\n    readonly userId: string;\n    readonly workspaceId?: string;\n    readonly sessionId?: string;\n    readonly rootRunId: string;\n    readonly runId: string;\n    readonly turnId?: string;\n    readonly stepId?: string;\n    readonly attemptId: string;\n    readonly purpose: \'agent\' | \'compaction\' | \'session-title\' | \'subagent\';\n    readonly billingMode: \'orygin\' | \'byok\';\n}',
   },
   {
     name: 'LlmAdapter',
@@ -3810,6 +3930,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PermissionSelect {\n    options: PresetOption[];\n    currentValue: string;\n}',
   },
   {
+    name: 'PersistenceScope',
+    declaration: 'export interface PersistenceScope {\n    readonly tenantId: string;\n}',
+  },
+  {
     name: 'PostToolDecision',
     declaration: 'export type PostToolDecision = {\n    kind: \'accept\';\n    content?: ContentBlock[];\n    value?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'accept\';\n    value: JsonValue;\n    content?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'block\';\n    feedback: ContentBlock[];\n    additionalContexts?: UserMessage[];\n};',
   },
@@ -3886,6 +4010,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ProviderRequestId = Branded<\'ProviderRequestId\'>;',
   },
   {
+    name: 'ProviderUsageReceipt',
+    declaration: 'export interface ProviderUsageReceipt extends LlmAccountingContext {\n    readonly provider: \'openrouter\';\n    readonly modelId: string;\n    readonly providerRequestId?: string;\n    readonly inputTokens: number;\n    readonly cachedInputTokens: number;\n    readonly outputTokens: number;\n    readonly reasoningTokens: number;\n    readonly openrouterDebitMicros?: bigint;\n    readonly upstreamInferenceCostMicros?: bigint;\n    readonly currency: \'USD\';\n}',
+  },
+  {
     name: 'PrunedEntry',
     declaration: 'export interface PrunedEntry {\n    readonly originalSeq: number;\n    readonly replacementSeq: number;\n    readonly callId: CallId;\n    readonly charsBefore: number;\n    readonly charsAfter: number;\n}',
   },
@@ -3914,12 +4042,12 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
   },
   {
-    name: 'ReplayEnvelope',
-    declaration: 'export interface ReplayEnvelope {\n    response: unknown;\n    blocks?: readonly unknown[];\n}',
+    name: 'RefundInput',
+    declaration: 'export interface RefundInput {\n    readonly tenantId: string;\n    readonly runId: string;\n    readonly credits: bigint;\n    readonly reason: string;\n    readonly idempotencyKey: string;\n    readonly actorUserId?: string;\n}',
   },
   {
-    name: 'RequestContext',
-    declaration: 'export interface RequestContext {\n    provider: string;\n    model: string;\n    contextWindow?: number;\n}',
+    name: 'ReplayEnvelope',
+    declaration: 'export interface ReplayEnvelope {\n    response: unknown;\n    blocks?: readonly unknown[];\n}',
   },
   {
     name: 'RequestErrorAction',
@@ -3936,6 +4064,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RequestRunOutcome',
     declaration: 'export type RequestRunOutcome = \'approved\' | \'completed\' | \'rejected\' | \'cancelled\' | \'failed\';',
+  },
+  {
+    name: 'ReservationExtension',
+    declaration: 'export interface ReservationExtension {\n    readonly tenantId: string;\n    readonly runId: string;\n    readonly additionalCredits: bigint;\n    readonly idempotencyKey: string;\n}',
   },
   {
     name: 'ResolvedAlwaysRetryPolicy',
@@ -3960,6 +4092,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResolvedSubagentStartRequest',
     declaration: 'export interface ResolvedSubagentStartRequest extends SubagentStartRequest {\n    readonly descriptor: SubagentDescriptorData;\n}',
+  },
+  {
+    name: 'ResourceAction',
+    declaration: 'export type ResourceAction = \'read\' | \'write\' | \'delete\' | \'execute\';',
   },
   {
     name: 'RestoredSessionOptions',
@@ -3994,8 +4130,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type RpcResult<T> = {\n    ok: true;\n    value: T;\n} | {\n    ok: false;\n    error: RpcError;\n};',
   },
   {
+    name: 'RunEstimate',
+    declaration: 'export interface RunEstimate {\n    readonly estimatedCredits: bigint;\n    readonly maximumCredits: bigint;\n    readonly estimatedVariableCostMicros: bigint;\n    readonly requiresConfirmation: boolean;\n}',
+  },
+  {
     name: 'RunnerFailureRule',
     declaration: 'export interface RunnerFailureRule {\n    allowedExitCodes?: readonly number[];\n    fatalSignatures: readonly string[];\n    informationalLines?: readonly string[];\n}',
+  },
+  {
+    name: 'RunSettlement',
+    declaration: 'export interface RunSettlement {\n    readonly runId: string;\n    readonly totalVariableCostMicros: bigint;\n    readonly creditsCharged: bigint;\n    readonly creditsReleased: bigint;\n    readonly status: \'settled\' | \'pending_reconciliation\';\n}',
   },
   {
     name: 'SandboxEnforcement',
@@ -4036,6 +4180,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'Scoped',
     declaration: 'export type Scoped<T extends object> = object & {\n    readonly [ScopedBrand]: T;\n};',
+  },
+  {
+    name: 'ScopedSessionPersistence',
+    declaration: 'export interface ScopedSessionPersistence {\n    readonly supportsRawArtifacts: boolean;\n    locate(meta: SessionHeader): SessionLocation | undefined;\n    readRaw(id: SessionId, signal?: AbortSignal): Promise<SessionRawArtifact | undefined>;\n    create(meta: SessionHeader): Promise<void>;\n    append(id: SessionId, events: readonly SessionEvent[]): Promise<void>;\n    prepare(id: SessionId, signal?: AbortSignal): Promise<SessionPreparation>;\n    load(id: SessionId): Promise<SessionInspection>;\n    inspect(id: SessionId, signal?: AbortSignal): Promise<SessionInspection>;\n    readFrom(id: SessionId, fromSeq: number, signal?: AbortSignal): Promise<{\n        meta: SessionHeader;\n        events: SessionEvent[];\n    }>;\n    list(signal?: AbortSignal): Promise<SessionHeader[]>;\n    listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot[]>;\n}',
   },
   {
     name: 'ScopeKey',

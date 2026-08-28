@@ -918,6 +918,24 @@ The provider topology changed: an adapter registered or unregistered routes, or 
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
 
+<a id="llmprovider-usage--emit"></a>
+
+#### `llm/provider-usage` — emit
+
+Internal receipt emitted once for each provider attempt with accounting context. Observer failures cannot change the provider result.
+
+```ts cordis-catalog
+/**
+ * Internal receipt emitted once for each provider attempt with accounting context.
+ * Observer failures cannot change the provider result.
+ * @param receipt - immutable usage and cost facts for one provider attempt.
+ * @mode emit
+ */
+'llm/provider-usage'(receipt: ProviderUsageReceipt): void
+```
+
+Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
+
 <a id="llmstream--waterfall"></a>
 
 #### `llm/stream` — waterfall

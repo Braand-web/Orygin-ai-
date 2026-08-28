@@ -34,6 +34,7 @@
   "peerDependencies": {
     "@orygin-ai/dsh-attachment": "workspace:^",
     "@orygin-ai/dsh-authorization": "workspace:^",
+    "@orygin-ai/dsh-billing": "workspace:^",
     "@orygin-ai/dsh-credentials": "workspace:^",
     "@orygin-ai/dsh-launch-environment": "workspace:^",
     "@orygin-ai/dsh-invariants": "workspace:^",
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@orygin-ai/dsh-attachment": "workspace:^",
     "@orygin-ai/dsh-authorization": "workspace:^",
+    "@orygin-ai/dsh-billing": "workspace:^",
     "@orygin-ai/dsh-credentials": "workspace:^",
     "@orygin-ai/dsh-launch-environment": "workspace:^",
     "@orygin-ai/dsh-invariants": "workspace:^",

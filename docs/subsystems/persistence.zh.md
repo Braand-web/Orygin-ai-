@@ -251,6 +251,15 @@ Durable append-only session storage. Implementations preserve contiguous, lossle
 
 ```ts cordis-catalog
 /**
+ * Bind every persistence operation to one server-derived tenant.
+ * Local backends intentionally serve only the explicit `local` scope;
+ * cloud backends override this method and return an enforcing facade.
+ * @param scope - trusted tenant ownership scope.
+ * @returns persistence operations incapable of escaping that tenant.
+ */
+forTenant(scope: PersistenceScope): ScopedSessionPersistence
+
+/**
  * Resolve this backend's independent local artifact for a session without
  * reading, creating, flushing, or otherwise materializing it. Backends such
  * as SQLite that do not own one artifact per session return `undefined`.

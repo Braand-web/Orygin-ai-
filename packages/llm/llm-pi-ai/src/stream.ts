@@ -121,12 +121,14 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
  * `finish` chunks (the harness protocol's other error-delivery style).
  * @param events - one assistant turn's pi-ai event stream.
  * @param contextWindow - resolved catalog capacity for usage-based overflow detection.
+ * @param onUsage - optional internal accounting observer called once at the terminal event.
  * @returns the harness chunks, ending with `usage` then `finish`; throws
  *   `LlmError` (`STREAM_CLOSED`) if the source ends without a terminal event.
  */
 export async function* toStreamChunks(
   events: AsyncIterable<AssistantMessageEvent>,
   contextWindow?: number,
+  onUsage?: (usage: PiUsage) => void | Promise<void>,
 ): AsyncGenerator<StreamChunk> {
   // pi-ai contentIndex ↔ our block index map 1:1 (both count blocks from 0
   // in stream order), but we track ids per index for tool calls.
@@ -189,6 +191,7 @@ export async function* toStreamChunks(
         }
         break
       case 'done':
+        await onUsage?.(event.message.usage)
         yield { type: 'usage', usage: mapUsage(event.message.usage) }
         yield {
           type: 'finish',
@@ -199,6 +202,7 @@ export async function* toStreamChunks(
       case 'error':
         // In-stream error delivery (pi-ai's style) → error finish chunk
         // (the harness's other sanctioned error path besides throwing).
+        await onUsage?.(event.error.usage)
         yield { type: 'usage', usage: mapUsage(event.error.usage) }
         yield { type: 'finish', reason: mapStopReason(event.error, contextWindow) }
         return

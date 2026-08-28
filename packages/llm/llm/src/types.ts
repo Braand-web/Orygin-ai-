@@ -21,6 +21,13 @@ declare module '@orygin-ai/cordis' {
      * @mode emit
      */
     'llm/adapters-updated'(): void
+    /**
+     * Internal receipt emitted once for each provider attempt with accounting context.
+     * Observer failures cannot change the provider result.
+     * @param receipt - immutable usage and cost facts for one provider attempt.
+     * @mode emit
+     */
+    'llm/provider-usage'(receipt: ProviderUsageReceipt): void
   }
 }
 
@@ -138,6 +145,35 @@ export interface TokenUsage {
   cacheReadTokens?: number
   cacheWriteTokens?: number
   reasoningTokens?: number
+}
+
+/** Server-derived attribution attached to every billable provider attempt. */
+export interface LlmAccountingContext {
+  readonly tenantId: string
+  readonly userId: string
+  readonly workspaceId?: string
+  readonly sessionId?: string
+  readonly rootRunId: string
+  readonly runId: string
+  readonly turnId?: string
+  readonly stepId?: string
+  readonly attemptId: string
+  readonly purpose: 'agent' | 'compaction' | 'session-title' | 'subagent'
+  readonly billingMode: 'orygin' | 'byok'
+}
+
+/** Provider cost receipt kept outside the conversation log and browser protocol. */
+export interface ProviderUsageReceipt extends LlmAccountingContext {
+  readonly provider: 'openrouter'
+  readonly modelId: string
+  readonly providerRequestId?: string
+  readonly inputTokens: number
+  readonly cachedInputTokens: number
+  readonly outputTokens: number
+  readonly reasoningTokens: number
+  readonly openrouterDebitMicros?: bigint
+  readonly upstreamInferenceCostMicros?: bigint
+  readonly currency: 'USD'
 }
 
 /** Display metadata for one registered provider route. */
@@ -374,4 +410,6 @@ export interface GenerateOptions {
    * generation policy. Ordinary conversation requests leave it unset.
    */
   purpose?: 'compaction' | 'session-title'
+  /** Required by the cloud billing profile; explicitly absent for local non-billable calls. */
+  accounting?: LlmAccountingContext
 }

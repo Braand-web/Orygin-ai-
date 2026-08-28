@@ -21,6 +21,9 @@
       "path": "../../llm/llm"
     },
     {
+      "path": "../../billing/billing"
+    },
+    {
       "path": "../../core/session"
     },
     {

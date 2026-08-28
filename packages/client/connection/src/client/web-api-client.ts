@@ -5,7 +5,7 @@ import { AbstractApiClient } from './api.ts'
 import { hostFrameSchema, muxFrameSchema } from '@orygin-ai/dsh-host-apiproxy/api/events.schema'
 import { serverRequestSchema } from '@orygin-ai/dsh-host-apiproxy/api/rpc.schema'
 import { HOST_EVENTS_PATH, MUX_EVENTS_PATH } from '../api-path.ts'
-import { getAccessToken, isAuthEnabled, notifyAuthRequired, withAuth, withAuthQuery } from './auth.ts'
+import { getAccessToken, isAuthEnabled, notifyAuthRequired, withAuth, withWebSocketTicket } from './auth.ts'
 
 /** Unary calls that represent a user action rather than an initial read. */
 const AUTH_ACTION_PATHS = new Set([
@@ -116,7 +116,7 @@ export class WebApiClient extends AbstractApiClient {
     frameSchema: Parser<F>,
     onOpen?: () => void,
   ): AsyncGenerator<RpcRequest<F>> {
-    const url = withAuthQuery(new URL(path, this.resolveBase()))
+    const url = await withWebSocketTicket(new URL(path, this.resolveBase()))
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     const socket = new WebSocket(url)
     const inbox: SocketItem<F>[] = []

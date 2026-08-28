@@ -13,6 +13,8 @@
     "src/index.ts",
     "src/invariant.ts",
     "src/loopback-hostname.ts",
+    "src/paddle-webhook.ts",
+    "src/request-context.ts",
     "src/rpc-host.ts",
     "src/rpc.ts",
     "src/websocket-downlink.ts"
@@ -23,6 +25,9 @@
     },
     {
       "path": "../../host/apiproxy"
+    },
+    {
+      "path": "../../security/request-context"
     },
     {
       "path": "../../host/webserver"

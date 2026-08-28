@@ -20,6 +20,13 @@ declare module '@orygin-ai/dsh-system-prompt' {
   }
 }
 
+/** Server-derived commercial identity attached to one cloud agent lifecycle. */
+export interface AgentBillingIdentity {
+  readonly tenantId: string
+  readonly userId: string
+  readonly billingMode: 'orygin' | 'byok'
+}
+
 /** Merge-extensible agent creation options. Persona belongs to system-prompt sections. */
 export interface AgentOptions {
   /** Provider route (must have a registered adapter at call time). */
@@ -28,6 +35,8 @@ export interface AgentOptions {
   model?: string
   /** Maximum output tokens for each conversation-model request. */
   maxTokens?: number
+  /** Server-only tenant attribution; browser payloads must never populate this field. */
+  billingIdentity?: AgentBillingIdentity
 }
 
 /** Options for {@link Agent.cancel}. */

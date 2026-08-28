@@ -53,6 +53,8 @@ allowBuilds:
   # The Python runtime deploy includes the reviewed workspace postinstall that
   # restores the executable bit on node-pty's macOS spawn helper.
   '@orygin-ai/dsh-subprocess-local@file:packages/subprocess/subprocess-local': true
+  # Wrangler's reviewed local Workers runtime binary.
+  workerd: true
 
 minimumReleaseAgeExclude:
   # Fresh pi-ai releases carry the model catalog updates that are the whole
@@ -67,6 +69,9 @@ minimumReleaseAgeExclude:
   - node-addon-require-builtin-win32-ia32-msvc@0.1.4
   - node-addon-require-builtin-win32-x64-msvc@0.1.4
   - node-addon-require-builtin@0.1.4
+  - '@cloudflare/sandbox@0.12.9'
+  - miniflare@5.20260826.0-alpha
+  - wrangler@4.127.0
 
 patchedDependencies:
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch

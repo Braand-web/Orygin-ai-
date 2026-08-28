@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-27-saas-identity-and-billing-boundaries.md
+2026-08-27-saas-identity-and-billing-boundaries.md: e3c883c969c2d448f38fb757ed53fc63ec3586bf
+2026-08-27-saas-identity-and-billing-boundaries.zh.md: 10fc51d32ae97fe1bbdacb5a5d4f649961b8efd0

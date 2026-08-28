@@ -65,6 +65,11 @@ function setAuthenticated(token = 'test-token'): void {
   ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = { getAccessToken: () => token }
 }
 
+function mockTicketFetch(ticket = 't'.repeat(43)) {
+  return vi.spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(Response.json({ ticket, expiresIn: 60 })))
+}
+
 async function mount(): Promise<ConnectionHandle> {
   const ctx = new Context()
   await ctx.plugin({ apply, inject: [] })
@@ -268,13 +273,13 @@ describe('connection client apply', () => {
     fetch.mockRestore()
   })
 
-  it('opens one WebSocket per downlink, parses frames, and aborts both without using fetch', async () => {
+  it('opens one ticketed WebSocket per downlink, parses frames, and aborts both', async () => {
     ;(globalThis as Win).location = {
       hostname: 'localhost', search: '', origin: 'http://localhost:3080',
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
     setAuthenticated()
-    const fetch = vi.spyOn(globalThis, 'fetch')
+    const fetch = mockTicketFetch()
     const client = (await mount()).api as WebApiClient
     const envelopes: RpcMessage[][] = []
     client.subscribeEnvelopes((batch) => { envelopes.push([...batch]) })
@@ -287,8 +292,13 @@ describe('connection client apply', () => {
     const hostFrame = host.next()
     await vi.waitFor(() => { expect(sockets).toHaveLength(2) })
     expect(sockets.map(socket => socket.url)).toEqual([
-      'ws://localhost:3080/api/events.mux?access_token=test-token',
-      'ws://localhost:3080/api/events.host?access_token=test-token',
+      `ws://localhost:3080/api/events.mux?ticket=${'t'.repeat(43)}`,
+      `ws://localhost:3080/api/events.host?ticket=${'t'.repeat(43)}`,
+    ])
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(fetch.mock.calls.map((call: unknown[]) => String(call[0]))).toEqual([
+      'http://localhost:3080/api/auth/ws-ticket',
+      'http://localhost:3080/api/auth/ws-ticket',
     ])
     await vi.waitFor(() => { expect(opened).toEqual(['mux', 'host']) })
 
@@ -315,8 +325,6 @@ describe('connection client apply', () => {
     })
     expect(errors).toHaveBeenCalledTimes(2)
     await vi.waitFor(() => { expect(envelopes.flat()).toHaveLength(2) })
-    expect(fetch).not.toHaveBeenCalled()
-
     const muxEnd = mux.next()
     const hostEnd = host.next()
     muxAbort.abort()
@@ -334,15 +342,17 @@ describe('connection client apply', () => {
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
     setAuthenticated()
+    const fetch = mockTicketFetch('s'.repeat(43))
     const client = (await mount()).api
     const abort = new AbortController()
     const iterator = client.events.mux({}, abort.signal)[Symbol.asyncIterator]()
     const pending = iterator.next()
     await vi.waitFor(() => {
-      expect(sockets[0]?.url).toBe('wss://harness.example/api/events.mux?access_token=test-token')
+      expect(sockets[0]?.url).toBe(`wss://harness.example/api/events.mux?ticket=${'s'.repeat(43)}`)
     })
     abort.abort()
     await expect(pending).resolves.toMatchObject({ done: true })
+    fetch.mockRestore()
   })
 
   it('closes a WebSocket immediately when its signal was already aborted', async () => {
@@ -351,6 +361,7 @@ describe('connection client apply', () => {
     }
     ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
     setAuthenticated()
+    const fetch = mockTicketFetch()
     const client = (await mount()).api
     const abort = new AbortController()
     abort.abort()
@@ -358,6 +369,7 @@ describe('connection client apply', () => {
     await expect(iterator.next()).resolves.toMatchObject({ done: true })
     expect(sockets).toHaveLength(1)
     expect(sockets[0]?.readyState).toBe(FakeWebSocket.CLOSED)
+    fetch.mockRestore()
   })
 
   it('carries RPC calls without requiring secure-context randomUUID', async () => {

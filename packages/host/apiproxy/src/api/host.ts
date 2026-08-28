@@ -46,11 +46,11 @@ export interface HostApi {
    */
   describe(request: RpcRequest<{}>): Promise<RpcResponse<{
     version: string
-    cwd: string
+    cwd?: string
     provider?: string
     model?: string
     attachedSessions: number
-    home: string
+    home?: string
     canOpenPath: boolean
   }>>
 

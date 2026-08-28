@@ -8,6 +8,8 @@ import type {
   ApiProxy, HostFrame, MuxFrame, RpcRequest, ServerRequest,
 } from '@orygin-ai/dsh-host-apiproxy/api'
 import { RpcId } from '@orygin-ai/dsh-host-apiproxy/api'
+import { withAuthPrincipal } from '@orygin-ai/dsh-request-context'
+import type { AuthPrincipal } from '@orygin-ai/dsh-request-context'
 
 type Frame = MuxFrame | HostFrame
 
@@ -60,9 +62,10 @@ export class WebSocketDownlinks {
    * @param req - HTTP upgrade request.
    * @param socket - Raw socket transferred by the HTTP server.
    * @param head - Bytes already read after the upgrade headers.
+   * @param principal - verified tenant identity bound to the socket lifetime.
    */
-  handleMux(req: IncomingMessage, socket: Duplex, head: Buffer): void {
-    this.upgrade(req, socket, head, signal => this.api.events.mux({
+  handleMux(req: IncomingMessage, socket: Duplex, head: Buffer, principal: AuthPrincipal): void {
+    this.upgrade(req, socket, head, principal, signal => this.api.events.mux({
       rpcId: RpcId(randomUUID()),
       payload: {},
     }, signal))
@@ -73,9 +76,10 @@ export class WebSocketDownlinks {
    * @param req - HTTP upgrade request.
    * @param socket - Raw socket transferred by the HTTP server.
    * @param head - Bytes already read after the upgrade headers.
+   * @param principal - verified tenant identity bound to the socket lifetime.
    */
-  handleHost(req: IncomingMessage, socket: Duplex, head: Buffer): void {
-    this.upgrade(req, socket, head, signal => this.api.events.host({
+  handleHost(req: IncomingMessage, socket: Duplex, head: Buffer, principal: AuthPrincipal): void {
+    this.upgrade(req, socket, head, principal, signal => this.api.events.host({
       rpcId: RpcId(randomUUID()),
       payload: {},
     }, signal))
@@ -100,6 +104,7 @@ export class WebSocketDownlinks {
     req: IncomingMessage,
     socket: Duplex,
     head: Buffer,
+    principal: AuthPrincipal,
     open: (signal: AbortSignal) => AsyncIterable<RpcRequest<F>>,
   ): void {
     this.server.handleUpgrade(req, socket, head, (websocket) => {
@@ -109,7 +114,8 @@ export class WebSocketDownlinks {
       websocket.once('message', () => {
         websocket.close(1008, 'downlink only')
       })
-      const pump = this.pump(websocket, open(abort.signal), abort)
+      const pump = withAuthPrincipal(principal, () =>
+        this.pump(websocket, open(abort.signal), abort, principal))
       this.pumps.add(pump)
       void pump.then(() => { this.pumps.delete(pump) })
     })
@@ -119,21 +125,24 @@ export class WebSocketDownlinks {
     socket: WebSocket,
     frames: AsyncIterable<RpcRequest<F>>,
     abort: AbortController,
+    principal: AuthPrincipal,
   ): Promise<void> {
-    try {
-      for await (const frame of frames) await send(socket, frame)
-    } catch (error) {
-      if (!abort.signal.aborted) {
-        try {
-          await send(socket, failureFrame(error))
-        } catch {
-          // Socket loss won the race; no downstream remains to receive the failure frame.
+    return withAuthPrincipal(principal, async () => {
+      try {
+        for await (const frame of frames) await send(socket, frame)
+      } catch (error) {
+        if (!abort.signal.aborted) {
+          try {
+            await send(socket, failureFrame(error))
+          } catch {
+            // Socket loss won the race; no downstream remains to receive the failure frame.
+          }
         }
+      } finally {
+        abort.abort()
+        if (socket.readyState === WebSocket.OPEN) socket.close()
       }
-    } finally {
-      abort.abort()
-      if (socket.readyState === WebSocket.OPEN) socket.close()
-    }
+    })
   }
 }
 

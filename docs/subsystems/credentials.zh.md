@@ -49,6 +49,10 @@ interface CredentialInfo {
 
 `credentials/reference-updated (ref)` 在提供方管理的来源发生已提交变更后发出——`set`、`unset` 或在存储中观察到的外部编辑。进程环境自身的变化不可观测，永不发出事件。消费方不需要该事件（它们按操作重新解析）；它服务于配置界面刷新「已配置」徽标。
 
+## 租户资源授权
+
+云端配置将凭据获取与租户授权分离。`ctx.resourceAuthorization` 会先验证已认证主体的活跃成员资格与精确所有权，然后才允许读取或修改工作区、会话、运行或供应商凭据。生产提供程序把判定委托给仅限 service role 的 PostgreSQL 函数，并在身份无效、传输失败或响应格式错误时采取拒绝策略。
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -211,6 +215,26 @@ abstract deleteRecord(key: CredentialKey): Promise<void>
 ```
 
 Source: [`packages/credentials/credentials/src/index.ts`](../../packages/credentials/credentials/src/index.ts)
+
+<a id="ctxresourceauthorization--resourceauthorizationservice-abstract-seam"></a>
+
+### `ctx.resourceAuthorization` — `ResourceAuthorizationService` (abstract seam)
+
+Server-only ownership checks for cold or database-backed tenant resources.
+
+```ts cordis-catalog
+/**
+ * Decide whether a verified principal may address one resource.
+ * @param principal - server-derived tenant membership.
+ * @param kind - resource family being addressed.
+ * @param resourceId - opaque UUID supplied as an address, never as authority.
+ * @param action - requested operation.
+ * @returns `true` only when active ownership and membership both hold.
+ */
+abstract authorize( principal: AuthPrincipal, kind: AuthorizedResourceKind, resourceId: string, action: ResourceAction, ): Promise<boolean>
+```
+
+Source: [`packages/security/request-context/src/index.ts`](../../packages/security/request-context/src/index.ts)
 
 <a id="authorization-events"></a>
 

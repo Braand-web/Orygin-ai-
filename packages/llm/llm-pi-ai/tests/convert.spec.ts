@@ -658,6 +658,27 @@ describe('toStreamChunks', () => {
     ])
   })
 
+  it('persists terminal usage before exposing usage and finish chunks', async () => {
+    const order: string[] = []
+    const stream = toStreamChunks(
+      feed({
+        type: 'done',
+        reason: 'stop',
+        message: assistant({ content: [{ type: 'text', text: 'done' }], usage: usage(3, 2) }),
+      }),
+      undefined,
+      async () => {
+        order.push('accounting-start')
+        await Promise.resolve()
+        order.push('accounting-persisted')
+      },
+    )
+
+    for await (const chunk of stream) order.push(chunk.type)
+
+    expect(order).toEqual(['accounting-start', 'accounting-persisted', 'usage', 'finish'])
+  })
+
   it('maps thinking events to reasoning blocks', async () => {
     const chunks = await collect(toStreamChunks(feed(
       { type: 'thinking_start', contentIndex: 0, partial: assistant() },

@@ -38,8 +38,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@supabase/supabase-js": "2.112.4",
     "@orygin-ai/schemastery": "workspace:^",
+    "@paddle/paddle-node-sdk": "3.10.0",
+    "@supabase/supabase-js": "2.112.4",
     "ws": "^8.21.0"
   },
   "files": [
@@ -49,26 +50,28 @@
     "lib/types/**/*.d.ts"
   ],
   "peerDependencies": {
-    "@orygin-ai/dsh-host-webserver": "workspace:^",
-    "@orygin-ai/dsh-invariants": "workspace:^",
     "@orygin-ai/cordis": "workspace:^",
     "@orygin-ai/dsh-attachment": "workspace:^",
-    "@orygin-ai/dsh-host-apiproxy": "workspace:^",
     "@orygin-ai/dsh-commands": "workspace:^",
+    "@orygin-ai/dsh-host-apiproxy": "workspace:^",
+    "@orygin-ai/dsh-host-webserver": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
     "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-request-context": "workspace:^",
     "@orygin-ai/dsh-session": "workspace:^",
     "@orygin-ai/dsh-tools": "workspace:^"
   },
   "devDependencies": {
-    "@orygin-ai/dsh-host-webserver": "workspace:^",
-    "@orygin-ai/dsh-invariants": "workspace:^",
-    "@types/ws": "^8.18.1",
     "@orygin-ai/cordis": "workspace:^",
     "@orygin-ai/dsh-attachment": "workspace:^",
-    "@orygin-ai/dsh-host-apiproxy": "workspace:^",
     "@orygin-ai/dsh-commands": "workspace:^",
+    "@orygin-ai/dsh-host-apiproxy": "workspace:^",
+    "@orygin-ai/dsh-host-webserver": "workspace:^",
+    "@orygin-ai/dsh-invariants": "workspace:^",
     "@orygin-ai/dsh-llm": "workspace:^",
+    "@orygin-ai/dsh-request-context": "workspace:^",
     "@orygin-ai/dsh-session": "workspace:^",
-    "@orygin-ai/dsh-tools": "workspace:^"
+    "@orygin-ai/dsh-tools": "workspace:^",
+    "@types/ws": "^8.18.1"
   }
 }

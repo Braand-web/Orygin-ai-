@@ -40,6 +40,28 @@ export interface SessionRawArtifact {
   readonly content: string
 }
 
+/** Explicit database ownership scope for cloud persistence operations. */
+export interface PersistenceScope {
+  /** Server-derived tenant identity; clients never provide this value. */
+  readonly tenantId: string
+}
+
+/** Tenant-bound persistence view returned by {@link SessionPersistence.forTenant}. */
+export interface ScopedSessionPersistence {
+  readonly supportsRawArtifacts: boolean
+  locate(meta: SessionHeader): SessionLocation | undefined
+  readRaw(id: SessionId, signal?: AbortSignal): Promise<SessionRawArtifact | undefined>
+  create(meta: SessionHeader): Promise<void>
+  append(id: SessionId, events: readonly SessionEvent[]): Promise<void>
+  prepare(id: SessionId, signal?: AbortSignal): Promise<SessionPreparation>
+  load(id: SessionId): Promise<SessionInspection>
+  inspect(id: SessionId, signal?: AbortSignal): Promise<SessionInspection>
+  readFrom(id: SessionId, fromSeq: number, signal?: AbortSignal):
+  Promise<{ meta: SessionHeader; events: SessionEvent[] }>
+  list(signal?: AbortSignal): Promise<SessionHeader[]>
+  listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot[]>
+}
+
 // The backend-agnostic write-path orchestration first-party backends compose.
 export {
   DEFAULT_PREPARED_SESSION_CACHE_SIZE,
@@ -84,6 +106,20 @@ export interface SessionLocation {
 export abstract class SessionPersistence extends Service {
   constructor(ctx: Context) {
     super(ctx, 'sessionPersistence')
+  }
+
+  /**
+   * Bind every persistence operation to one server-derived tenant.
+   * Local backends intentionally serve only the explicit `local` scope;
+   * cloud backends override this method and return an enforcing facade.
+   * @param scope - trusted tenant ownership scope.
+   * @returns persistence operations incapable of escaping that tenant.
+   */
+  forTenant(scope: PersistenceScope): ScopedSessionPersistence {
+    if (scope.tenantId !== 'local') {
+      throw new Error('this session persistence backend is local-only and cannot serve a cloud tenant')
+    }
+    return this
   }
 
   /**

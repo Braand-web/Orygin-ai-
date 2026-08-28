@@ -10,7 +10,10 @@ import { bridge, DEFAULT_MAX_REQUEST_BODY_BYTES } from './http-bridge.ts'
 import { assertTrustedAuthority, isTrustedApiRequest } from './api-request-trust.ts'
 import { HostConnectionService } from './rpc-host.ts'
 import { rejectWebSocketUpgrade, WebSocketDownlinks } from './websocket-downlink.ts'
-import { authenticateFetchRequest, authenticateNodeRequest } from './auth.ts'
+import { authenticateFetchRequest, authenticateNodeRequest, supabaseAuthRequired } from './auth.ts'
+import type { AuthPrincipal } from './auth.ts'
+import { withAuthPrincipal } from './request-context.ts'
+import { handlePaddleWebhook, paddleWebhookConfigured } from './paddle-webhook.ts'
 
 export type {
   ConnectionRpcAuthority,
@@ -21,6 +24,8 @@ export type {
   HostConnectionRpc,
 } from './rpc.ts'
 export { HostConnectionService } from './rpc-host.ts'
+export { currentAuthPrincipal, requireAuthPrincipal } from './request-context.ts'
+export type { AuthPrincipal, AuthRole, RequestContext } from './auth.ts'
 
 export { API_PATH, HOST_EVENTS_PATH, MUX_EVENTS_PATH } from './api-path.ts'
 
@@ -29,6 +34,19 @@ export const name = 'client-connection'
 
 /** Headroom for RPC JSON fields around aggregate base64 image payloads. */
 const REQUEST_ENVELOPE_HEADROOM_BYTES = 1024 * 1024
+const SAAS_PROFILE_ENV = 'ORYGIN_SAAS_PROFILE'
+const CLOUD_EXECUTION_READY_ENV = 'ORYGIN_CLOUD_EXECUTION_READY'
+const CLOUD_WORKSPACE_API_READY_ENV = 'ORYGIN_CLOUD_WORKSPACE_API_READY'
+
+const CLOUD_EXECUTION_METHODS = new Set([
+  'session.create',
+  'session.prompt',
+  'session.fork',
+  'subagent.prompt',
+  'goal.create',
+  'goal.resume',
+  'workspace.create',
+])
 
 function assertImageBodyCapacity(ctx: Context, maxRequestBodyBytes: number): void {
   const attachments = ctx.get('attachments')
@@ -137,32 +155,85 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
   for (const entry of trustedHosts) assertTrustedAuthority(entry)
   if (ctx.get('apiProxy') !== undefined) assertImageBodyCapacity(ctx, maxRequestBodyBytes)
   const connection = new HostConnectionService(ctx, trustedHosts)
+  const liveRoute: WebRoute = {
+    kind: 'exact',
+    path: '/health/live',
+    handler: (_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+      res.end('{"status":"ok"}')
+    },
+  }
+  const readyRoute: WebRoute = {
+    kind: 'exact',
+    path: '/health/ready',
+    handler: (_req, res) => {
+      const missing = readinessFailures()
+      res.writeHead(missing.length === 0 ? 200 : 503, {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+      })
+      res.end(JSON.stringify({ status: missing.length === 0 ? 'ready' : 'not-ready', missing }))
+    },
+  }
+  const paddleWebhookRoute: WebRoute = {
+    kind: 'exact',
+    path: '/webhooks/paddle',
+    handler: (req, res) => handlePaddleWebhook(req, res),
+  }
+  ctx.effect(() => ctx.webServer.register(liveRoute), 'client-connection: live health route')
+  ctx.effect(() => ctx.webServer.register(readyRoute), 'client-connection: ready health route')
+  ctx.effect(() => ctx.webServer.register(paddleWebhookRoute), 'client-connection: Paddle webhook route')
   const fetchHandler = connection.createSharedFetchHandler(API_PATH, {
     async fetch(request) {
-      if (!(await authenticateFetchRequest(request))) {
+      const principal = await authenticateFetchRequest(request)
+      if (principal === undefined) {
         return new Response('unauthorized', {
           status: 401,
           headers: { 'www-authenticate': 'Bearer' },
         })
       }
-      const pathname = new URL(request.url).pathname
-      const method = pathname.startsWith(`${API_PATH}/`)
-        ? pathname.slice(API_PATH.length + 1)
-        : undefined
-      if (method !== undefined
-        && PRIVILEGED_METHODS.has(method)
-        && !isTrustedApiRequest(request, [])) {
-        return new Response('forbidden', { status: 403 })
-      }
-      if (request.method === 'GET' && (pathname === MUX_EVENTS_PATH || pathname === HOST_EVENTS_PATH)) {
-        return new Response('upgrade required', {
-          status: 426,
-          headers: { connection: 'Upgrade', upgrade: 'websocket' },
-        })
-      }
-      const apiProxy = ctx.get('apiProxy')
-      if (apiProxy === undefined) return new Response('not found', { status: 404 })
-      return toFetchHandler(apiProxy).fetch(request)
+      return withAuthPrincipal(principal, () => {
+        const pathname = new URL(request.url).pathname
+        const method = pathname.startsWith(`${API_PATH}/`)
+          ? pathname.slice(API_PATH.length + 1)
+          : undefined
+        if (process.env[SAAS_PROFILE_ENV] === '1'
+          && method !== undefined
+          && PRIVILEGED_METHODS.has(method)) {
+          return new Response('not found', { status: 404 })
+        }
+        if (process.env[SAAS_PROFILE_ENV] === '1'
+          && process.env[CLOUD_EXECUTION_READY_ENV] !== '1'
+          && method !== undefined
+          && CLOUD_EXECUTION_METHODS.has(method)) {
+          return Response.json({
+            code: 'sandbox-unavailable',
+            message: 'Cloud workspace execution is not enabled',
+          }, { status: 503 })
+        }
+        if (process.env[SAAS_PROFILE_ENV] === '1'
+          && process.env[CLOUD_WORKSPACE_API_READY_ENV] !== '1'
+          && method?.startsWith('workspace.') === true) {
+          return Response.json({
+            code: 'sandbox-unavailable',
+            message: 'Tenant-scoped cloud workspaces are not enabled',
+          }, { status: 503 })
+        }
+        if (method !== undefined
+          && PRIVILEGED_METHODS.has(method)
+          && !isTrustedApiRequest(request, [])) {
+          return new Response('forbidden', { status: 403 })
+        }
+        if (request.method === 'GET' && (pathname === MUX_EVENTS_PATH || pathname === HOST_EVENTS_PATH)) {
+          return new Response('upgrade required', {
+            status: 426,
+            headers: { connection: 'Upgrade', upgrade: 'websocket' },
+          })
+        }
+        const apiProxy = ctx.get('apiProxy')
+        if (apiProxy === undefined) return new Response('not found', { status: 404 })
+        return toFetchHandler(apiProxy).fetch(request)
+      })
     },
   })
   const route: WebRoute = {
@@ -174,12 +245,13 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
         res.end('forbidden')
         return
       }
-      if (!(await authenticateNodeRequest(req))) {
+      const principal = await authenticateNodeRequest(req)
+      if (principal === undefined) {
         res.writeHead(401, { 'www-authenticate': 'Bearer' })
         res.end('unauthorized')
         return
       }
-      await bridge(req, res, fetchHandler, maxRequestBodyBytes)
+      await withAuthPrincipal(principal, () => bridge(req, res, fetchHandler, maxRequestBodyBytes))
     },
   }
   ctx.effect(() => ctx.webServer.register(route), 'client-connection: /api route')
@@ -188,7 +260,12 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
     const downlinks = new WebSocketDownlinks(apiCtx.apiProxy)
     const registerDownlink = (
       path: string,
-      handle: WebUpgradeRoute['handler'],
+      handle: (
+        req: Parameters<WebUpgradeRoute['handler']>[0],
+        socket: Parameters<WebUpgradeRoute['handler']>[1],
+        head: Parameters<WebUpgradeRoute['handler']>[2],
+        principal: AuthPrincipal,
+      ) => void | Promise<void>,
     ): void => {
       apiCtx.effect(() => apiCtx.webServer.registerUpgrade({
         path,
@@ -197,16 +274,37 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
             rejectWebSocketUpgrade(socket)
             return
           }
-          if (!(await authenticateNodeRequest(req))) {
+          const principal = await authenticateNodeRequest(req)
+          if (principal === undefined) {
             rejectWebSocketUpgrade(socket)
             return
           }
-          return handle(req, socket, head)
+          return withAuthPrincipal(principal, () => handle(req, socket, head, principal))
         },
       }), `client-connection: ${path} WebSocket`)
     }
     apiCtx.effect(() => () => downlinks.close(), 'client-connection: WebSocket downlinks')
-    registerDownlink(MUX_EVENTS_PATH, (req, socket, head) => { downlinks.handleMux(req, socket, head) })
-    registerDownlink(HOST_EVENTS_PATH, (req, socket, head) => { downlinks.handleHost(req, socket, head) })
+    registerDownlink(MUX_EVENTS_PATH, (req, socket, head, principal) => {
+      downlinks.handleMux(req, socket, head, principal)
+    })
+    registerDownlink(HOST_EVENTS_PATH, (req, socket, head, principal) => {
+      downlinks.handleHost(req, socket, head, principal)
+    })
   })
+}
+
+function readinessFailures(): string[] {
+  const missing: string[] = []
+  if (supabaseAuthRequired()) {
+    if (!process.env.SUPABASE_URL) missing.push('supabase-url')
+    if (!process.env.SUPABASE_PUBLISHABLE_KEY) missing.push('supabase-publishable-key')
+  }
+  if (process.env[SAAS_PROFILE_ENV] === '1') {
+    if ((process.env.ORYGIN_EDGE_IDENTITY_SECRET?.length ?? 0) < 32) missing.push('edge-identity-secret')
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('supabase-service-role-key')
+    if (process.env[CLOUD_EXECUTION_READY_ENV] !== '1') missing.push('cloud-execution')
+    if (process.env[CLOUD_WORKSPACE_API_READY_ENV] !== '1') missing.push('cloud-workspace-api')
+    if (process.env.PADDLE_CHECKOUT === '1' && !paddleWebhookConfigured()) missing.push('paddle-webhook')
+  }
+  return missing
 }
