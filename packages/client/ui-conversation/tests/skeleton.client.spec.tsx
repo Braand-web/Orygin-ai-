@@ -380,6 +380,8 @@ describe('ConversationRoot resident composer', () => {
     expect(host?.contains(header)).toBe(false)
     expect(host?.contains(seat)).toBe(true)
     expect(seat?.contains(textarea)).toBe(true)
+    expect(b.view.getByRole('tablist', { name: '会话视图' })).toBeTruthy()
+    expect(b.view.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Chat', 'Trajectory'])
     expect(b.slotCalls).toContain('conversation.session.header.lineage')
     expect(b.slotCalls).toContain('conversation.session.header.actions')
     expect(b.slotCalls).toContain('conversation.session.header.utilities')

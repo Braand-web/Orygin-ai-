@@ -1,7 +1,6 @@
-/* Conversation column skeleton: header (breadcrumb row only for subagents not fork + tabs) over the view
-   area, composer InputBar at the bottom. Column width/squeeze is layout's;
-   this fills its cell. Figma: Header 39:27730 (83px two-row), tabs 13px with
-   a 2px active bar. */
+/* Conversation column skeleton: compact session controls above the view area,
+   composer InputBar at the bottom. Column width/squeeze is layout's; this
+   fills its cell. */
 
 .root {
   display: flex;
@@ -28,7 +27,7 @@
 .header {
   position: relative;
   flex: none;
-  padding: 12px 28px 0 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid transparent;
 }
 
@@ -53,7 +52,7 @@
 .titleRow {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 12px;
   min-height: 32px;
 }
 
@@ -67,6 +66,7 @@
 
 .crumbs {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 4px;
   min-width: 0;
@@ -130,31 +130,31 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  margin-left: 20px;
+  margin-left: 0;
 }
 
 .headerUtilities:empty {
   display: none;
 }
 
-/* figma Tab_Group 34:11441: 35px strip, gap 36, pad-left 8, tabs bottom-aligned. */
+/* View switching stays in the same compact row as the session title. */
 .tabs {
   position: relative;
   z-index: 1;
   display: flex;
-  gap: 36px;
-  margin-top: 4px;
-  padding-left: 8px;
+  flex: none;
+  gap: 16px;
+  align-items: center;
 }
 
-/* figma .Tab 34:11442: 13/16 text (figma wt510, rendered 500), gap 8 to the 2px bar. */
+/* Compact tab affordance with a small active underline. */
 .tab {
   position: relative;
-  padding: 0 0 11px;
+  padding: 4px 0;
   border: none;
   background: transparent;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 20px;
   font-weight: 500;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
@@ -164,7 +164,7 @@
   content: '';
   position: absolute;
   right: 0;
-  bottom: 1px;
+  bottom: 0;
   left: 0;
   height: 2px;
   border-radius: 2px;

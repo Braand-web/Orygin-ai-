@@ -138,26 +138,26 @@ export function ConversationSessionHeader({
                 {renderSlot('conversation.session.header.actions', {})}
               </div>
             </div>
+            {tabs.length > 1 && (
+              <div className={css.tabs} role="tablist" aria-label={t('session.views')}>
+                {tabs.map(viewTab => (
+                  <button
+                    key={viewTab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={viewTab.id === active?.id}
+                    className={clsx(css.tab, viewTab.id === active?.id && css.tabActive)}
+                    onClick={() => { actions.setView(viewTab.id) }}
+                  >
+                    {viewTab.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className={css.headerUtilities}>
               {renderSlot('conversation.session.header.utilities', {})}
             </div>
           </div>
-          {tabs.length > 1 && (
-            <div className={css.tabs} role="tablist">
-              {tabs.map(viewTab => (
-                <button
-                  key={viewTab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={viewTab.id === active?.id}
-                  className={clsx(css.tab, viewTab.id === active?.id && css.tabActive)}
-                  onClick={() => { actions.setView(viewTab.id) }}
-                >
-                  {viewTab.label}
-                </button>
-              ))}
-            </div>
-          )}
         </>
       )}
     </header>
