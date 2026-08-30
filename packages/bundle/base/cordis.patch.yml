@@ -63,8 +63,11 @@
     - id: agent-default-model
       name: '@orygin-ai/dsh-agent-default-model'
       config:
-        provider: orygin-official
-        model: orygin-v4-flash
+        # Production can select a different default through Railway secrets/
+        # variables without changing the shipped local fallback. The route is
+        # still validated by the agent when a session is created.
+        provider: !!js process.env.ORYGIN_DEFAULT_PROVIDER ?? 'orygin-official'
+        model: !!js process.env.ORYGIN_DEFAULT_MODEL ?? 'orygin-v4-flash'
 
     - id: jobs
       name: '@orygin-ai/dsh-jobs-local'

@@ -184,6 +184,21 @@ it('assembles the shipped Web catalog, file-reference guidance, retry policy, an
   }
 }, 120_000)
 
+it('activates the server-side OpenRouter route when its key is present', async () => {
+  const previousKey = process.env.OPENROUTER_API_KEY
+  process.env.OPENROUTER_API_KEY = 'test-openrouter-key'
+  try {
+    scaffold = await launchWebScaffold({ oryginMissingCredential: true })
+    const route = scaffold.ctx.llm.listProviders().find(provider => provider.id === 'openrouter')
+    expect(route).toMatchObject({ id: 'openrouter', name: 'OpenRouter' })
+    const models = await scaffold.ctx.llm.listModels('openrouter')
+    expect(models.map(model => model.id)).toContain('auto')
+  } finally {
+    if (previousKey === undefined) delete process.env.OPENROUTER_API_KEY
+    else process.env.OPENROUTER_API_KEY = previousKey
+  }
+}, 120_000)
+
 it('lets a preset producer reach the background-job registry', async () => {
   scaffold = await launchWebScaffold()
   const ctx = scaffold.ctx
