@@ -2,6 +2,15 @@
   min-height: 100vh;
 }
 
+.orygin-auth-overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  overflow: auto;
+  background: rgba(13, 20, 34, 0.62);
+  backdrop-filter: blur(8px);
+}
+
 .orygin-auth-page,
 .orygin-auth-state {
   --auth-ink: #161b26;
@@ -21,7 +30,7 @@
   display: grid;
   min-height: 100vh;
   padding: 2rem 1.25rem;
-  background: var(--auth-page);
+  background: transparent;
   place-items: center;
 }
 

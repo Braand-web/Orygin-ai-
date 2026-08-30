@@ -278,19 +278,20 @@ function unauthorized() {
 }
 
 function unavailable(message) {
-  return Response.json({ code: 'billing-unavailable', message }, {
+  return Response.json({ code: 'auth-unavailable', message }, {
     status: 503,
     headers: { 'cache-control': 'no-store' },
   })
 }
 
-function withSecurityHeaders(response) {
+function withSecurityHeaders(response, noStore = false) {
   const headers = new Headers(response.headers)
   headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload')
   headers.set('x-content-type-options', 'nosniff')
   headers.set('x-frame-options', 'DENY')
   headers.set('referrer-policy', 'strict-origin-when-cross-origin')
   headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(self)')
+  if (noStore) headers.set('cache-control', 'no-store')
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
 }
 
@@ -310,7 +311,7 @@ const worker = {
       return Response.redirect(incoming, 308)
     }
     if (incoming.pathname === TICKET_PATH) {
-      return withSecurityHeaders(await issueWebSocketTicket(request, env))
+      return withSecurityHeaders(await issueWebSocketTicket(request, env), true)
     }
 
     let identityHeaders
@@ -321,7 +322,9 @@ const worker = {
 
     try {
       const response = await fetch(createUpstreamRequest(request, identityHeaders))
-      return isWebSocketUpgrade(request) ? response : withSecurityHeaders(response)
+      return isWebSocketUpgrade(request)
+        ? response
+        : withSecurityHeaders(response, isApiPath(incoming.pathname))
     } catch (error) {
       console.error(JSON.stringify({
         event: 'upstream_fetch_failed',

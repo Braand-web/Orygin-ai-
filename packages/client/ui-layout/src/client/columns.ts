@@ -1,8 +1,8 @@
 /**
  * Pure concession-chain column solver for the three-column AppFrame.
  * Chain order is fixed by contract: keep center >= CENTER_MIN by shrinking
- * details, then auto-closing it (derived zero width — preferred width
- * preferences are never rewritten, so widening the window restores them).
+ * details down to its minimum. An open details panel is never closed by a
+ * viewport resize; only an explicit user action may close it.
  * The sidebar never concedes: its rendered width is always the drag
  * preference (or the collapsed rail), and center absorbs any remaining
  * deficit as the last resort. Inputs are the layout store's plain width
@@ -71,7 +71,7 @@ export function computeColumns(viewport: number, sidebar: number, details: numbe
   const d1 = d0 === 0 ? 0 : Math.max(DETAILS_MIN, viewport - s - CENTER_MIN)
   if (s + d1 + CENTER_MIN <= viewport) return { sidebar: s, center: CENTER_MIN, details: d1 }
 
-  // Step 3: auto-close details (derived — preferences untouched); center
-  // absorbs any remaining deficit (may drop below CENTER_MIN).
-  return { sidebar: s, center: Math.max(0, viewport - s), details: 0 }
+  // Step 3: keep an explicitly open details panel at its minimum. The center
+  // absorbs the remaining deficit (and may drop below CENTER_MIN).
+  return { sidebar: s, center: Math.max(0, viewport - s - d1), details: d1 }
 }

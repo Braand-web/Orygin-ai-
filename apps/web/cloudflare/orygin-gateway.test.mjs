@@ -94,6 +94,41 @@ test('rejects unlisted hosts but allows cross-site navigation to the app shell',
   )
 })
 
+test('marks every API response as private and non-cacheable', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => Response.json({ ok: true }, {
+    headers: { 'cache-control': 'public, max-age=3600' },
+  })
+  try {
+    const response = await worker.fetch(new Request('https://orygin.fun/api/host.describe', {
+      method: 'POST',
+      headers: { origin: 'https://orygin.fun', 'sec-fetch-site': 'same-origin' },
+      body: '{}',
+    }), {})
+    assert.equal(response.status, 200)
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('reports missing ticket infrastructure as authentication unavailable', async () => {
+  const response = await worker.fetch(new Request('https://orygin.fun/api/auth/ws-ticket', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test-token',
+      origin: 'https://orygin.fun',
+      'sec-fetch-site': 'same-origin',
+    },
+  }), {})
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), {
+    code: 'auth-unavailable',
+    message: 'WebSocket authentication is not configured',
+  })
+  assert.equal(response.headers.get('cache-control'), 'no-store')
+})
+
 test('exchanges a bearer for an origin-bound one-use WebSocket ticket', async () => {
   const objects = new Map()
   const namespace = {

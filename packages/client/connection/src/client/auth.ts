@@ -7,6 +7,14 @@ interface AuthGlobal {
   }
 }
 
+/** A stale browser session could not be exchanged for a WebSocket ticket. */
+export class AuthenticationRequiredError extends Error {
+  constructor(message = 'Authentication is required') {
+    super(message)
+    this.name = 'AuthenticationRequiredError'
+  }
+}
+
 /**
  * Whether the web application installed an authentication boundary.
  * @returns current installation state.
@@ -61,7 +69,10 @@ export async function withWebSocketTicket(url: URL): Promise<URL> {
     credentials: 'omit',
   })
   if (!response.ok) {
-    if (response.status === 401) notifyAuthRequired()
+    if (response.status === 401) {
+      notifyAuthRequired()
+      throw new AuthenticationRequiredError('WebSocket ticket request was rejected')
+    }
     throw new Error(`WebSocket ticket request failed with HTTP ${String(response.status)}`)
   }
   const payload = await response.json() as { ticket?: unknown }

@@ -5,7 +5,14 @@ import { AbstractApiClient } from './api.ts'
 import { hostFrameSchema, muxFrameSchema } from '@orygin-ai/dsh-host-apiproxy/api/events.schema'
 import { serverRequestSchema } from '@orygin-ai/dsh-host-apiproxy/api/rpc.schema'
 import { HOST_EVENTS_PATH, MUX_EVENTS_PATH } from '../api-path.ts'
-import { getAccessToken, isAuthEnabled, notifyAuthRequired, withAuth, withWebSocketTicket } from './auth.ts'
+import {
+  AuthenticationRequiredError,
+  getAccessToken,
+  isAuthEnabled,
+  notifyAuthRequired,
+  withAuth,
+  withWebSocketTicket,
+} from './auth.ts'
 
 /** Unary calls that represent a user action rather than an initial read. */
 const AUTH_ACTION_PATHS = new Set([
@@ -61,7 +68,13 @@ export class WebApiClient extends AbstractApiClient {
       }
     }
     return globalThis.fetch(input, withAuth(init)).then((response) => {
-      if (response.status === 401 && AUTH_ACTION_PATHS.has(input.pathname)) notifyAuthRequired()
+      if (response.status === 401) {
+        notifyAuthRequired()
+        if (GUEST_RPC_VALUES.has(input.pathname)) {
+          const guest = this.guestRpcResponse(init, GUEST_RPC_VALUES.get(input.pathname))
+          if (guest !== undefined) return guest
+        }
+      }
       return response
     })
   }
@@ -116,7 +129,16 @@ export class WebApiClient extends AbstractApiClient {
     frameSchema: Parser<F>,
     onOpen?: () => void,
   ): AsyncGenerator<RpcRequest<F>> {
-    const url = await withWebSocketTicket(new URL(path, this.resolveBase()))
+    let url: URL
+    try {
+      url = await withWebSocketTicket(new URL(path, this.resolveBase()))
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        yield* this.readGuestStream<F>(signal, onOpen)
+        return
+      }
+      throw error
+    }
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
     const socket = new WebSocket(url)
     const inbox: SocketItem<F>[] = []

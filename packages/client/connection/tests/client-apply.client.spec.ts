@@ -254,6 +254,55 @@ describe('connection client apply', () => {
     fetch.mockRestore()
   })
 
+  it('falls back to the guest projection when a stored bearer token is stale', async () => {
+    ;(globalThis as Win).location = {
+      hostname: 'harness.example', search: '', origin: 'https://harness.example',
+    }
+    const requestAuth = vi.fn()
+    ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
+      getAccessToken: () => 'expired-token',
+      requestAuth,
+    }
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Unauthorized', { status: 401 }),
+    )
+    const client = (await mount()).api as WebApiClient
+
+    await expect(client.host.describe({})).resolves.toMatchObject({
+      result: { ok: true, value: { cwd: '', home: '', attachedSessions: 0, canOpenPath: false } },
+    })
+    expect(requestAuth).toHaveBeenCalledOnce()
+    expect(fetch).toHaveBeenCalledOnce()
+    fetch.mockRestore()
+  })
+
+  it('keeps streams open in guest mode when WebSocket ticket auth expires', async () => {
+    ;(globalThis as Win).location = {
+      hostname: 'harness.example', search: '', origin: 'https://harness.example',
+    }
+    ;(globalThis as WebSocketGlobal).WebSocket = FakeWebSocket as unknown as typeof WebSocket
+    const requestAuth = vi.fn()
+    ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
+      getAccessToken: () => 'expired-token',
+      requestAuth,
+    }
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('Unauthorized', { status: 401 }),
+    )
+    const client = (await mount()).api as WebApiClient
+    const abort = new AbortController()
+    const opened = vi.fn()
+    const iterator = client.events.mux({}, abort.signal, opened)[Symbol.asyncIterator]()
+    const pending = iterator.next()
+
+    await vi.waitFor(() => { expect(opened).toHaveBeenCalledOnce() })
+    expect(requestAuth).toHaveBeenCalledOnce()
+    expect(sockets).toHaveLength(0)
+    abort.abort()
+    await expect(pending).resolves.toMatchObject({ done: true })
+    fetch.mockRestore()
+  })
+
   it('gates generic guest actions without sending them to the Host', async () => {
     ;(globalThis as Win).location = {
       hostname: 'harness.example', search: '', origin: 'https://harness.example',

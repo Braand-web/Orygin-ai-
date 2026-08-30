@@ -48,7 +48,9 @@ function showConfigurationError(message: string): void {
 function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void, onCancel?: () => void): void {
   if (authGateVisible) return
   authGateVisible = true
-  el.innerHTML = `<main class="orygin-auth-page">
+  const gate = document.createElement('div')
+  gate.className = 'orygin-auth-overlay'
+  gate.innerHTML = `<main class="orygin-auth-page" role="dialog" aria-modal="true" aria-labelledby="orygin-auth-title">
     <section class="orygin-auth-main" aria-labelledby="orygin-auth-title">
       <div class="orygin-auth-main-inner">
         <div class="orygin-auth-brand-header"><img class="orygin-auth-logo" src="/favicon.svg" alt="" /><span>ORYGIN</span></div>
@@ -86,23 +88,33 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void, onCancel
       </div>
     </section>
   </main>`
+  document.body.append(gate)
 
-  const form = document.getElementById('orygin-auth-form') as HTMLFormElement | null
-  const submit = document.getElementById('orygin-auth-submit') as HTMLButtonElement | null
-  const loginMode = document.getElementById('orygin-auth-login-mode') as HTMLButtonElement | null
-  const signupMode = document.getElementById('orygin-auth-signup-mode') as HTMLButtonElement | null
-  const footerToggle = document.getElementById('orygin-auth-footer-toggle') as HTMLButtonElement | null
-  const footerPrompt = document.getElementById('orygin-auth-footer-prompt')
-  const title = document.getElementById('orygin-auth-title')
-  const description = document.getElementById('orygin-auth-description')
-  const passwordToggle = document.getElementById('orygin-auth-password-toggle') as HTMLButtonElement | null
-  const close = document.getElementById('orygin-auth-close') as HTMLButtonElement | null
-  const status = document.getElementById('orygin-auth-status')
+  const form = gate.querySelector<HTMLFormElement>('#orygin-auth-form')
+  const submit = gate.querySelector<HTMLButtonElement>('#orygin-auth-submit')
+  const loginMode = gate.querySelector<HTMLButtonElement>('#orygin-auth-login-mode')
+  const signupMode = gate.querySelector<HTMLButtonElement>('#orygin-auth-signup-mode')
+  const footerToggle = gate.querySelector<HTMLButtonElement>('#orygin-auth-footer-toggle')
+  const footerPrompt = gate.querySelector('#orygin-auth-footer-prompt')
+  const title = gate.querySelector('#orygin-auth-title')
+  const description = gate.querySelector('#orygin-auth-description')
+  const passwordToggle = gate.querySelector<HTMLButtonElement>('#orygin-auth-password-toggle')
+  const close = gate.querySelector<HTMLButtonElement>('#orygin-auth-close')
+  const status = gate.querySelector('#orygin-auth-status')
   if (
     form === null || submit === null || loginMode === null || signupMode === null
     || footerToggle === null || footerPrompt === null || title === null || description === null
     || passwordToggle === null || close === null || status === null
-  ) return
+  ) {
+    gate.remove()
+    authGateVisible = false
+    return
+  }
+
+  const dismiss = (): void => {
+    gate.remove()
+    authGateVisible = false
+  }
 
   let signUp = false
   const setMode = (nextSignUp: boolean): void => {
@@ -138,7 +150,7 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void, onCancel
     passwordToggle.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe')
   })
   close.addEventListener('click', () => {
-    authGateVisible = false
+    dismiss()
     onCancel?.()
   })
 
@@ -174,6 +186,7 @@ function showAuthGate(supabase: SupabaseClient, afterAuth?: () => void, onCancel
         submit.disabled = false
         return
       }
+      dismiss()
       if (afterAuth !== undefined) afterAuth()
       else await startApp()
     })().catch((error: unknown) => {
@@ -209,14 +222,14 @@ async function bootstrap(): Promise<void> {
   ;(globalThis as AuthGlobal).__ORYGIN_AUTH__ = {
     getAccessToken: () => accessToken,
     requestAuth: () => {
-      showAuthGate(supabase, () => { window.location.reload() }, () => { window.location.reload() })
+      showAuthGate(supabase, () => { window.location.reload() })
     },
   }
   await startApp()
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
     publishSession(session)
     if (session !== null && !appStarted) queueMicrotask(() => { void startApp() })
-    if (session === null && appStarted) window.location.reload()
+    if (event === 'SIGNED_OUT' && appStarted) window.location.reload()
   })
 }
 
