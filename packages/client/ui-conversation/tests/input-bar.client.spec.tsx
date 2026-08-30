@@ -754,6 +754,13 @@ describe('running and lock semantics', () => {
     expect((textarea).value).toBe('typed')
   })
 
+  it('uses the native text layer for a plain word so the complete draft stays visible', () => {
+    const { textarea, view } = bench({ draft: 'bonjour' })
+    expect(textarea.className).toContain('inputPlain')
+    expect(view.container.querySelector('[data-input-backdrop]')?.className).toContain('backdropPlain')
+    expect(textarea.value).toBe('bonjour')
+  })
+
   it('wheel over a non-overflowing draft forwards to the conversation host', () => {
     const host = document.createElement('div')
     host.setAttribute('data-conversation-scroll', '')

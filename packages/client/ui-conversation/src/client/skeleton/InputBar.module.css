@@ -147,6 +147,12 @@
   pointer-events: none;
 }
 
+/* Plain prose does not need the decoration mirror. Let the textarea paint its
+   own glyphs so every browser uses one authoritative text layer while typing. */
+.backdropPlain {
+  visibility: hidden;
+}
+
 .backdropDisabled,
 .backdropDisabled :is(.hlToken, .hint, .textRef, .chip, .chipInvalid) {
   color: var(--dsw-alias-label-tertiary);
@@ -231,6 +237,16 @@
      it: WebKit reserves gutter space for an overflow-y:auto textarea and not
      for the overflow:hidden layers beside it, leaving them 8px apart
      (768 against 776) — worth 2 to 5 wrapped lines on a long draft. */
+}
+
+.inputPlain {
+  color: var(--dsw-alias-label-primary);
+  -webkit-text-fill-color: var(--dsw-alias-label-primary);
+}
+
+.inputPlain:disabled {
+  color: var(--dsw-alias-label-tertiary);
+  -webkit-text-fill-color: var(--dsw-alias-label-tertiary);
 }
 
 /* figma 34:10434: #ADB2B8 light / #81858C dark — the caption pair exactly. */

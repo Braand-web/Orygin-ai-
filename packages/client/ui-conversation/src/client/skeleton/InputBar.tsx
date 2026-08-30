@@ -587,6 +587,13 @@ export function InputBar({
   // text. Claim tokens and references retain the draft's own glyph metrics,
   // so their decoration cannot drift from wrapping, selection, or the caret.
   const deco = input === undefined ? INERT_DECORATIONS : deriveDecorations(input, lexicon)
+  // Keep ordinary prose on the browser's native text layer. The transparent
+  // textarea/backdrop split is only needed when a slash token or reference
+  // carries a decoration; on plain drafts some Chromium/WebKit builds can
+  // repaint the backdrop incrementally and leave only the first glyph visible
+  // while the caret has already advanced. Native glyphs are authoritative for
+  // the common path and remove that compositor race entirely.
+  const layeredText = deco.token !== null || deco.chips.length > 0 || deco.textRefs.length > 0 || deco.hint !== null
   const backdrop: ReactNode[] = []
   {
     // Segment boundaries: the token range end, every structured-reference
@@ -731,7 +738,7 @@ export function InputBar({
           <div className={css.grow}>
             <div
               aria-hidden
-              className={clsx(css.backdrop, textareaDisabled && css.backdropDisabled)}
+              className={clsx(css.backdrop, textareaDisabled && css.backdropDisabled, !layeredText && css.backdropPlain)}
               data-input-backdrop
               data-disabled={textareaDisabled || undefined}
             >
@@ -739,7 +746,7 @@ export function InputBar({
             </div>
             <textarea
               ref={inputRef}
-              className={css.input}
+              className={clsx(css.input, !layeredText && css.inputPlain)}
               value={draft}
               disabled={textareaDisabled}
               readOnly={machineBusy || inertAction !== undefined}
