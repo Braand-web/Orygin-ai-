@@ -8,6 +8,7 @@ import type {
   AssistantChatData, FinalAssistantChatData, TurnTailChatData,
 } from '../contract/chat-nodes.ts'
 import { deriveTurnMetrics } from '../chat/turn-metrics.ts'
+import { deriveTurnTokenUsage } from './turn-usage.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 
 declare module '@orygin-ai/dsh-client-ui-conversation/client' {
@@ -137,6 +138,9 @@ function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChat
     }
   }
   const metrics = deriveTurnMetrics(finalized.map(candidate => candidate.finalNode)).get(end.event.data.turn)
+  const tokenUsage = context.start?.event.type === 'turn/start'
+    ? deriveTurnTokenUsage(context.matches.map(match => match.event))
+    : undefined
   return {
     turn: end.event.data.turn,
     seq: end.event.seq,
@@ -145,6 +149,7 @@ function tailData(context: ConversationNodeContext<TurnTailState>): TurnTailChat
     branchUnavailable: closing === null || latestTranscriptSeq !== closing.finalNode.seq,
     ...metrics?.ttftMs === undefined ? {} : { ttftMs: metrics.ttftMs },
     ...metrics?.tokensPerSecond === undefined ? {} : { tokensPerSecond: metrics.tokensPerSecond },
+    ...tokenUsage === undefined ? {} : { tokenUsage },
   }
 }
 

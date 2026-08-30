@@ -13,6 +13,9 @@ import type { AuthPrincipal } from '@orygin-ai/dsh-request-context'
 
 type Frame = MuxFrame | HostFrame
 
+/** Keep idle WebSocket connections observable through Cloudflare/Railway. */
+export const WEBSOCKET_HEARTBEAT_INTERVAL_MS = 30_000
+
 function serverRequest(frame: RpcRequest<Frame>): ServerRequest {
   return {
     type: 'server-request',
@@ -109,8 +112,30 @@ export class WebSocketDownlinks {
   ): void {
     this.server.handleUpgrade(req, socket, head, (websocket) => {
       const abort = new AbortController()
-      websocket.once('close', () => { abort.abort() })
-      websocket.once('error', () => { abort.abort() })
+      let alive = true
+      const heartbeat = setInterval(() => {
+        if (websocket.readyState !== WebSocket.OPEN) {
+          clearInterval(heartbeat)
+          return
+        }
+        if (!alive) {
+          // A missing pong means the proxy or peer has gone away while the
+          // TCP socket still looks open. Terminate rather than retaining a
+          // pump and a tenant-scoped stream forever.
+          websocket.terminate()
+          abort.abort()
+          clearInterval(heartbeat)
+          return
+        }
+        alive = false
+        try { websocket.ping() } catch { websocket.terminate(); abort.abort(); clearInterval(heartbeat) }
+      }, WEBSOCKET_HEARTBEAT_INTERVAL_MS)
+      // Heartbeats must never keep a clean Railway shutdown alive.
+      if ('unref' in heartbeat && typeof heartbeat.unref === 'function') heartbeat.unref()
+      const cleanup = () => { clearInterval(heartbeat); abort.abort() }
+      websocket.on('pong', () => { alive = true })
+      websocket.once('close', cleanup)
+      websocket.once('error', cleanup)
       websocket.once('message', () => {
         websocket.close(1008, 'downlink only')
       })

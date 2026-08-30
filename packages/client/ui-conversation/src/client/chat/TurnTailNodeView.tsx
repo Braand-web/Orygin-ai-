@@ -2,6 +2,7 @@ import { memo } from 'react'
 import type { PropsRenderSlots } from '@orygin-ai/dsh-client-ui-slots'
 import type { ChatNodeViewProps, TurnTailOwnerProps } from '../contract/slots.ts'
 import { MessageIconActions } from './MessageIconActions.tsx'
+import { TurnUsageDisclosure } from './TurnUsageDisclosure.tsx'
 import { assistantText } from './turn-assistant.ts'
 import css from './TurnTailNodeView.module.css'
 
@@ -35,6 +36,7 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   return (
     <div className={css.root} data-turn-tail={data.turn} data-time-hover-root>
       {tail}
+      {data.tokenUsage === undefined ? null : <TurnUsageDisclosure usage={data.tokenUsage} t={t} />}
       <MessageIconActions
         text={assistantText(closing.blocks)}
         time={closing.time}

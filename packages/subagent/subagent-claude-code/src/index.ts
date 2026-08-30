@@ -50,6 +50,8 @@ export interface Config {
    * `bypassPermissions` explicitly skips permission checks.
    */
   permissionMode?: ClaudeCodePermissionMode
+  /** Optional native Claude model identifier fixed for this Provider instance. */
+  model?: string
   /** Grace in milliseconds for Claude Code process-tree termination. */
   disposeGraceMs?: number
 }
@@ -59,10 +61,11 @@ export const Config: z<Config> = z.object({
   env: z.dict(z.string()).default({}),
   permissionMode: z.union([...CLAUDE_CODE_PERMISSION_MODES])
     .default(DEFAULT_CLAUDE_CODE_PERMISSION_MODE),
+  model: z.string().min(1),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
-type ResolvedConfig = Required<Config>
+type ResolvedConfig = Omit<Required<Config>, 'model'> & Pick<Config, 'model'>
 /* jscpd:ignore-end */
 
 /* jscpd:ignore-start -- Cordis registration and shared-seam plumbing mirror
@@ -107,6 +110,7 @@ class ClaudeCodeProvider implements SubagentProvider {
     const spec: ClaudeCodeRunSpec = {
       cwd,
       permissionMode: this.config.permissionMode,
+      ...(this.config.model === undefined ? {} : { model: this.config.model }),
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
       spawn: spawnSpec => this.ctx.subprocess.spawn(spawnSpec),
@@ -127,12 +131,15 @@ class ClaudeCodeProvider implements SubagentProvider {
  * @param config - registry name, permission mode, child environment, and disposal grace.
  */
 export function apply(ctx: Context, config: Config): void {
-  const resolved: ResolvedConfig = {
+  const resolvedBase = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CLAUDE_CODE_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,
   }
+  const resolved: ResolvedConfig = config.model === undefined
+    ? resolvedBase
+    : { ...resolvedBase, model: config.model }
   assertPositiveFinite(
     'subagent-claude-code',
     'disposeGraceMs',

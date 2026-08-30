@@ -563,6 +563,9 @@ describe('task admission and package contracts', () => {
     expect(() => claudeCode.Config({ providerName: '' })).toThrow()
     expect(claudeCode.Config({}).permissionMode)
       .toBe(DEFAULT_CLAUDE_CODE_PERMISSION_MODE)
+    expect(claudeCode.Config({ model: 'claude-sonnet-4-5' }).model)
+      .toBe('claude-sonnet-4-5')
+    expect(() => claudeCode.Config({ model: '' })).toThrow()
     for (const permissionMode of CLAUDE_CODE_PERMISSION_MODES) {
       expect(claudeCode.Config({ permissionMode }).permissionMode)
         .toBe(permissionMode)
@@ -841,6 +844,7 @@ describe('query options and result mapping', () => {
     const spec: ClaudeCodeRunSpec = {
       cwd: '/workspace',
       permissionMode: 'acceptEdits',
+      model: 'claude-sonnet-4-5',
       env: {
         HOST_VISIBLE: 'overridden',
         ANTHROPIC_API_KEY: 'explicit-fake-key',
@@ -862,6 +866,7 @@ describe('query options and result mapping', () => {
       abortController: controller,
       cwd: '/workspace',
       persistSession: false,
+      model: 'claude-sonnet-4-5',
       disallowedTools: ['AskUserQuestion'],
       permissionMode: 'acceptEdits',
       supportedDialogKinds: ['refusal_fallback_prompt'],

@@ -152,6 +152,8 @@ export interface ClaudeCodeRunSpec {
   readonly cwd: string
   /** Profile-selected native non-interactive permission mode. */
   readonly permissionMode: ClaudeCodePermissionMode
+  /** Optional native Claude model identifier. */
+  readonly model?: string
   /** Explicit deployment/test environment layered after shared scrubbing. */
   readonly env: Record<string, string>
   /** Subprocess termination grace passed to the shared process-tree owner. */
@@ -320,6 +322,7 @@ export function claudeQueryOptions(
     cwd: spec.cwd,
     env: { ...scrubbedParentEnv(), ...spec.env },
     persistSession: false,
+    ...(spec.model === undefined ? {} : { model: spec.model }),
     disallowedTools: spec.permissionMode === 'plan'
       ? ['AskUserQuestion', 'ExitPlanMode']
       : ['AskUserQuestion'],

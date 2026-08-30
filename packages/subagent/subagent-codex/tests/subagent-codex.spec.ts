@@ -576,6 +576,8 @@ describe('task admission and package contracts', () => {
       .toBe('codex-safe')
     expect(() => codex.Config({ providerName: '' })).toThrow()
     expect(codex.Config({}).permissionMode).toBe(DEFAULT_CODEX_PERMISSION_MODE)
+    expect(codex.Config({ model: 'gpt-5-codex' }).model).toBe('gpt-5-codex')
+    expect(() => codex.Config({ model: '' })).toThrow()
     for (const permissionMode of CODEX_PERMISSION_MODES) {
       expect(codex.Config({ permissionMode }).permissionMode).toBe(permissionMode)
     }
@@ -623,6 +625,32 @@ describe('task admission and package contracts', () => {
       cwd: '/workspace',
       ephemeral: true,
       ...expected,
+    })
+    child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
+    await starting
+    wire.close()
+  })
+
+  it('forwards an explicitly configured native model to thread/start', async () => {
+    const child = fakeChild()
+    const wire = new CodexAppServerWire(
+      child.handle.stdout!,
+      child.handle.stdin!,
+      DEFAULT_CODEX_PERMISSION_MODE,
+      'gpt-5-codex',
+    )
+    wire.start()
+    const initializing = wire.initialize(new AbortController().signal)
+    const initialize = await child.peer.nextMethod('initialize')
+    child.peer.respond(initialize, { userAgent: 'codex-cli 0.147.0' })
+    await initializing
+    await child.peer.nextMethod('initialized')
+    const starting = wire.startThread('/workspace', new AbortController().signal)
+    const threadStart = await child.peer.nextMethod('thread/start')
+    expect(threadStart.params).toMatchObject({
+      cwd: '/workspace',
+      ephemeral: true,
+      model: 'gpt-5-codex',
     })
     child.peer.respond(threadStart, { thread: { id: 'thread-1', ephemeral: true } })
     await starting

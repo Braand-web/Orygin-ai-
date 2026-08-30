@@ -27,6 +27,7 @@ export type {
   AssistantChatData, ChatNode, ChatNodeDataMap, ChatNodeKind, ManualCompactionChatData,
   RetryChatData, ToolChatData, TurnTailChatData,
 } from './contract/chat-nodes.ts'
+export type { TurnTokenUsage } from './contract/chat-nodes.ts'
 export type {
   ChatFileMentions, ChatNodeOwnerProps, ChatNodeViewProps,
   ChatStore, ChatViewInjected, ChatViewSlotProps, CommandRowOwnerProps, CommandRowProps, ComposerBarInjected,

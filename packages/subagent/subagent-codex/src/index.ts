@@ -43,6 +43,8 @@ export interface Config {
   env?: Record<string, string>
   /** Native non-interactive permission mode fixed for this Provider instance. */
   permissionMode?: CodexPermissionMode
+  /** Optional native Codex model identifier fixed for this Provider instance. */
+  model?: string
   /** Grace in milliseconds for app-server process-tree termination. */
   disposeGraceMs?: number
 }
@@ -52,10 +54,11 @@ export const Config: z<Config> = z.object({
   env: z.dict(z.string()).default({}),
   permissionMode: z.union([...CODEX_PERMISSION_MODES])
     .default(DEFAULT_CODEX_PERMISSION_MODE),
+  model: z.string().min(1),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
-type ResolvedConfig = Required<Config>
+type ResolvedConfig = Omit<Required<Config>, 'model'> & Pick<Config, 'model'>
 
 class CodexProvider implements SubagentProvider {
   readonly capabilities: SubagentCapabilities = NO_START_CAPABILITIES
@@ -92,6 +95,7 @@ class CodexProvider implements SubagentProvider {
     const spec: CodexRunSpec = {
       cwd,
       permissionMode: this.config.permissionMode,
+      ...(this.config.model === undefined ? {} : { model: this.config.model }),
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
       spawn: spawnSpec => this.ctx.subprocess.spawn(spawnSpec),
@@ -111,12 +115,15 @@ class CodexProvider implements SubagentProvider {
  * @param config - registry name, permission mode, child environment, and disposal grace.
  */
 export function apply(ctx: Context, config: Config): void {
-  const resolved: ResolvedConfig = {
+  const resolvedBase = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CODEX_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,
   }
+  const resolved: ResolvedConfig = config.model === undefined
+    ? resolvedBase
+    : { ...resolvedBase, model: config.model }
   assertPositiveFinite(
     'subagent-codex',
     'disposeGraceMs',

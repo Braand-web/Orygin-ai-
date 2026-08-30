@@ -61,6 +61,24 @@ export interface TurnTailChatData {
   readonly branchUnavailable: boolean
   readonly ttftMs?: number
   readonly tokensPerSecond?: number
+  /** Exact provider-reported usage aggregated across this completed turn. */
+  readonly tokenUsage?: TurnTokenUsage
+}
+
+/** Exact provider-reported usage aggregated across one completed turn. */
+export interface TurnTokenUsage {
+  readonly uncachedInputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
+  readonly cacheReadTokens?: number
+  readonly cacheWriteTokens?: number
+  readonly reasoningTokens?: number
+  readonly routes?: readonly TurnTokenUsageRoute[]
+}
+
+export interface TurnTokenUsageRoute {
+  readonly provider: string
+  readonly model: string
 }
 
 /**
