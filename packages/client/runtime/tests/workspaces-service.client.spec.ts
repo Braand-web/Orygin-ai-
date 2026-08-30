@@ -399,7 +399,7 @@ describe('WorkspaceRuntime', () => {
     await expect(workspaces.insertBefore(wid('ghost'))).rejects.toThrow(/workspace-not-found: gone/)
   })
 
-  it('targets New Session at explicit, current-session, then recent Workspaces and clears with none', async () => {
+  it('targets New Session at explicit, current-session, then recent Workspaces and creates chat-only with none', async () => {
     const ctx = new Context()
     const api = new FakeApiClient()
     const sessions = new SessionRuntime(ctx, api, fakeRemote())
@@ -437,9 +437,11 @@ describe('WorkspaceRuntime', () => {
     const emptyApi = new FakeApiClient()
     const emptySessions = new SessionRuntime(emptyCtx, emptyApi, fakeRemote())
     const emptyWorkspaces = new WorkspaceRuntime(emptyCtx, emptyApi, emptySessions)
-    const clear = vi.spyOn(emptySessions, 'clear')
+    emptyApi.onCreate = () => Promise.resolve(ok({ sessionId: sid('chat-only') }))
     emptyWorkspaces.startSession()
-    expect(clear).toHaveBeenCalledOnce()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(emptyApi.callsOf('session.create')).toEqual([{}])
+    expect(emptySessions.list.getSnapshot().current).toBe('chat-only')
   })
 
   it('archives a session, projects the set from the response, list, and frame, and clears only the current one', async () => {
@@ -549,7 +551,7 @@ describe('startInitialSelection', () => {
     stop()
   })
 
-  it('stays idle when a session is already current or no recent Workspace exists', async () => {
+  it('keeps an existing current session and waits for an action when no Workspace exists', async () => {
     const withCurrent = bench()
     withCurrent.api.onList = () => Promise.resolve(ok({
       items: [{ sessionId: sid('s1'), updatedAt: 1, running: false, blank: false }] as never[],
@@ -568,9 +570,35 @@ describe('startInitialSelection', () => {
     await noRecent.workspaces.refresh()
     await noRecent.sessions.refresh()
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(noRecent.api.callsOf('session.create')).toHaveLength(0)
+    expect(noRecent.api.callsOf('session.create')).toEqual([])
+    expect(noRecent.sessions.list.getSnapshot().current).toBeUndefined()
     expect(() => noRecent.workspaces.startInitialSelection()).toThrow(/already started/)
     stopEmpty()
+  })
+
+  it('reuses an unaccounted blank chat and New Session coalesces a fresh chat-only create', async () => {
+    const existing = bench()
+    existing.api.onList = () => Promise.resolve(ok({
+      items: [{ sessionId: sid('s-blank-chat'), updatedAt: 1, running: false, blank: true }] as never[],
+    }))
+    await existing.workspaces.refresh()
+    await existing.sessions.refresh()
+    existing.workspaces.startSession()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(existing.api.callsOf('session.create')).toEqual([])
+    expect(existing.sessions.list.getSnapshot().current).toBe('s-blank-chat')
+
+    const fresh = bench()
+    const gate = deferred<Awaited<ReturnType<FakeApiClient['onCreate']>>>()
+    fresh.api.onCreate = () => gate.promise
+    await fresh.workspaces.refresh()
+    await fresh.sessions.refresh()
+    fresh.workspaces.startSession()
+    fresh.workspaces.startSession()
+    expect(fresh.api.callsOf('session.create')).toEqual([{}])
+    gate.resolve(ok({ sessionId: sid('s-fresh-chat') }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(fresh.sessions.list.getSnapshot().current).toBe('s-fresh-chat')
   })
 
   it('a failed connect returns to waiting and retries on the next list change', async () => {

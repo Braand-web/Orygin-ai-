@@ -471,6 +471,8 @@ export type ChatStore = ReturnType<typeof createChatStore>
 
 /** Business callbacks injected into the conversation slot. */
 export interface ConversationInjected {
+  /** Create and open a chat-only Session after a no-session user gesture. */
+  startConversation: () => void
   /**
    * Connect the selected Workspace and open its reusable/new blank session.
    * When a blank session is already current, carry its draft to the target.
@@ -536,6 +538,8 @@ export interface ComposerBarOwnerProps {
   workspacePickerOpen?: boolean
   /** Open the existing Workspace picker from the inert textarea. */
   onRequestWorkspace?: () => void
+  /** Materialize a chat-only Session from the inert no-session textarea. */
+  onRequestConversation?: () => void
   placeholder?: string
   /** Optional content rendered above the textarea. */
   accessory?: ReactNode

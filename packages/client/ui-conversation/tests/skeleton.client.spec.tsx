@@ -266,6 +266,7 @@ function mount(
     inputActions,
     renderSlot,
     renderSlotChain,
+    startConversation: vi.fn(),
     selectWorkspace: retargetWorkspace,
     t,
   }
@@ -316,20 +317,18 @@ describe('ConversationRoot resident composer', () => {
     expect(seat('conversation.input.plan')).toEqual({ locked: true })
   })
 
-  it('lets the no-workspace posture win over a block', () => {
-    // Picking a workspace is the earlier prerequisite; naming a model first
-    // would send the user somewhere they cannot act yet.
+  it('keeps a model block actionable when the blank session has no Workspace', () => {
+    // Workspace setup is optional for chat; a genuine model block therefore
+    // remains the only prerequisite and keeps its model selector live.
     const b = mount(conversationSnapshot({ composerPhase: 'blank' }), [], undefined, {
       summaryBlank: true,
       composerBlock: { reason: 'select a model first' },
     })
     const box = b.view.getByRole('textbox') as HTMLTextAreaElement
-    expect(box.disabled).toBe(false)
-    expect(box.readOnly).toBe(true)
-    expect(box.getAttribute('aria-haspopup')).toBe('menu')
-    expect(box.placeholder).not.toBe('select a model first')
+    expect(box.disabled).toBe(true)
+    expect(box.placeholder).toBe('select a model first')
     const modelSeat = b.seatOwners.filter(call => call.key === 'conversation.input.model').at(-1)?.owner
-    expect(modelSeat).toEqual({ locked: true })
+    expect(modelSeat).toEqual({ locked: false })
   })
 
   it('keeps composer text in the machine, mirrors to the chat store, and submits through the sink', () => {
@@ -537,6 +536,18 @@ describe('ConversationRoot resident composer', () => {
     // The agent-preset chip sits in the same row, for the same reason: both
     // choices are only open before the first message.
     expect(b.slotCalls).toContain('conversation.hero.agentPreset')
+  })
+
+  it('keeps an ungrouped blank session ready to chat without a Workspace', () => {
+    const b = mount(conversationSnapshot({ composerPhase: 'blank', blank: true }), [])
+    const box = b.view.getByRole('textbox') as HTMLTextAreaElement
+    expect(box.disabled).toBe(false)
+    expect(box.readOnly).toBe(false)
+    expect(box.placeholder).toBe('描述你想要构建的内容')
+    fireEvent.change(box, { target: { value: 'chat without workspace' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(b.sink).toHaveBeenCalledWith('chat without workspace', [], 'queue', expect.any(AbortSignal))
+    expect(b.view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
   })
 
   it('prompt failure renders the promptError strip (ordinary failure, no transaction UI)', () => {

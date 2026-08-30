@@ -14,7 +14,7 @@ export type ConversationRootProps = ConversationSlotProps
 
 export function ConversationRoot({
   sessionId, useSession, useSessions, useWorkspaces, useInput, useComposerBlock,
-  renderSlot, renderSlotChain, selectWorkspace, t,
+  renderSlot, renderSlotChain, startConversation, selectWorkspace, t,
 }: ConversationRootProps) {
   const openState = useSession(s => s.openState)
   const composerPhase = useSession(s => s.composerPhase)
@@ -124,15 +124,13 @@ export function ConversationRoot({
     </div>
   )
 
-  // The placeholder chip ("Choose workspace") and the Workspace-trigger input travel
-  // together: no workspace picked yet (cold start, no session at all), or a
-  // blank session whose workspace vanished (deleted from the sidebar). The
-  // bar is ONE session-maybe slot rendered unconditionally — inert is a prop,
-  // not a different tree, so the textarea DOM survives the transition.
-  const inert = sessionId === undefined || (hero && chipTitle === undefined)
-  // A raised block is the same inert posture with the blocker's own reason:
-  // one disabled textarea, never a second tree. The no-workspace state wins
-  // when both hold — picking a workspace is the earlier prerequisite.
+  // A Workspace is optional for ordinary chat. Runtime startup materializes
+  // a chat-only Session when none exists; an ungrouped blank session therefore
+  // keeps the hero composer live while the chip remains available for users
+  // who later need repository/filesystem context. Only the short pre-session
+  // startup window is inert.
+  const inert = sessionId === undefined
+  // A raised block is the same inert posture with the blocker's own reason.
   const blocked = !inert && composerBlock !== undefined
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
@@ -141,9 +139,8 @@ export function ConversationRoot({
       : inert
         ? {
           disabled: true,
-          placeholder: t('placeholder.workspace'),
-          workspacePickerOpen: pickerOpen,
-          onRequestWorkspace: () => { setPickerOpen(true) },
+          placeholder: t('placeholder.startConversation'),
+          onRequestConversation: startConversation,
         }
         : blocked
           // `blocked`, not `disabled`: the bar refuses input either way, but a

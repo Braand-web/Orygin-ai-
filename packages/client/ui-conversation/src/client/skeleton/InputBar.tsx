@@ -81,7 +81,7 @@ export function InputBar({
   resolveSubmitMode, toggleCommandMenu, stop, command, t,
   renderSlot, useNotices, useLexicon, useMenuLauncher,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
-  workspacePickerOpen = false, onRequestWorkspace,
+  workspacePickerOpen = false, onRequestWorkspace, onRequestConversation,
   placeholder, accessory, overlay, leftItems, rightItems, footer,
 }: InputBarProps) {
   const input = useInput(s => s)
@@ -173,12 +173,15 @@ export function InputBar({
   // be disabled do lock it — there is no session to choose a model for.
   const modelSeatLocked = removed || inert || !live
   const machineBusy = input?.phase === 'adjudicating' || input?.phase === 'submitting'
-  // The no-workspace textarea remains the resident DOM node but acts as the
-  // existing picker trigger. Message controls stay locked until a Session
-  // exists; the trigger itself is read-only rather than disabled so pointer
-  // and keyboard users can reach the recovery action.
-  const workspaceTrigger = inert && !removed && onRequestWorkspace !== undefined
-  const textareaDisabled = removed || (locked && !workspaceTrigger)
+  // The inert textarea remains the resident DOM node but acts as a single
+  // start-conversation action (or the legacy Workspace recovery action when
+  // supplied alone). Message controls stay locked until a Session exists;
+  // the trigger itself is read-only rather than disabled so pointer and
+  // keyboard users can reach it.
+  const conversationTrigger = inert && !removed && onRequestConversation !== undefined
+  const workspaceTrigger = !conversationTrigger && inert && !removed && onRequestWorkspace !== undefined
+  const inertAction = conversationTrigger ? onRequestConversation : workspaceTrigger ? onRequestWorkspace : undefined
+  const textareaDisabled = removed || (locked && inertAction === undefined)
   const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && subagent === null
     && input.queue.some(row => row.placement === 'queued')
 
@@ -346,10 +349,10 @@ export function InputBar({
   }, [])
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (workspaceTrigger) {
+    if (inertAction !== undefined) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault()
-        onRequestWorkspace()
+        inertAction()
       }
       return
     }
@@ -700,10 +703,10 @@ export function InputBar({
           click's reopen (close-then-open flickers the chip's open echo). */}
       <div
         ref={cardRef}
-        className={clsx(css.card, workspaceTrigger && css.cardWorkspaceTrigger)}
+        className={clsx(css.card, inertAction !== undefined && css.cardWorkspaceTrigger)}
         data-composer-card
-        onClick={workspaceTrigger ? onRequestWorkspace : undefined}
-        onPointerDown={workspaceTrigger ? (e) => { e.stopPropagation() } : undefined}
+        onClick={inertAction}
+        onPointerDown={inertAction === undefined ? undefined : (e) => { e.stopPropagation() }}
       >
         {overlay !== undefined && <div className={css.overlayAnchor}>{overlay}</div>}
         {accessory !== undefined && <div className={css.accessory}>{accessory}</div>}
@@ -739,8 +742,10 @@ export function InputBar({
               className={css.input}
               value={draft}
               disabled={textareaDisabled}
-              readOnly={machineBusy || workspaceTrigger}
-              aria-label={workspaceTrigger ? t('hero.chooseWorkspace') : undefined}
+              readOnly={machineBusy || inertAction !== undefined}
+              aria-label={conversationTrigger
+                ? t('input.startConversation')
+                : workspaceTrigger ? t('hero.chooseWorkspace') : undefined}
               aria-haspopup={workspaceTrigger ? 'menu' : undefined}
               aria-expanded={workspaceTrigger ? workspacePickerOpen : undefined}
               data-phase={input?.phase ?? 'inert'}

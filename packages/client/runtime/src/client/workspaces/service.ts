@@ -55,6 +55,8 @@ export class WorkspaceRuntime implements IWorkspaces {
   private readonly manager: WorkspaceManager
   /** In-flight blank-session creates keyed by workspace (connectWorkspace coalescing). */
   private readonly connecting = new Map<WorkspaceId, Promise<SessionId>>()
+  /** In-flight chat-only session create (cold start / unscoped New Session coalescing). */
+  private connectingDefault: Promise<SessionId> | undefined
   /** Guards the runtime-owned one-shot initial-selection subscription. */
   private initialSelectionStarted = false
 
@@ -116,9 +118,38 @@ export class WorkspaceRuntime implements IWorkspaces {
   }
 
   /**
+   * Resolve a chat session without making Workspace setup a prerequisite.
+   * Reuse an existing unarchived, unaccounted blank session when possible;
+   * otherwise create one against the deployment default. Selecting a
+   * Workspace later remains an optional upgrade for repository and file work.
+   * @returns a binding-resolvable chat-only session id.
+   */
+  private async connectDefaultSession(): Promise<SessionId> {
+    const workspaceSessionIds = new Set(
+      this.list.getSnapshot().items.flatMap(workspace => workspace.sessionIds),
+    )
+    const archived = this.list.getSnapshot().archivedSessionIds
+    const sessions = this.sessions.list.getSnapshot()
+    for (const id of sessions.ids) {
+      const summary = sessions.byId[id]
+      if (summary?.blank === true && !workspaceSessionIds.has(id) && !archived.includes(id)) return id
+    }
+    if (this.connectingDefault !== undefined) return this.connectingDefault
+    const attempt = this.sessions.create()
+      .finally(() => {
+        if (this.connectingDefault === attempt) this.connectingDefault = undefined
+      })
+    this.connectingDefault = attempt
+    return attempt
+  }
+
+  /**
    * Follow the first complete Workspace/Session baseline and select a default
    * session exactly once. A restored current session wins; otherwise the most
    * recent Workspace is connected (reusing or creating its blank session).
+   * With no Workspace it stays idle: the conversation surface creates a
+   * chat-only Session only after the visitor acts, preserving action-gated
+   * authentication.
    * Later explicit clears stay cleared instead of retriggering this startup
    * policy. A failed connect may retry on the next baseline projection.
    * @returns disposer for the baseline subscription; late work cannot navigate after disposal.
@@ -169,7 +200,8 @@ export class WorkspaceRuntime implements IWorkspaces {
    * button, workspace browser): resolve the target Workspace — explicit wins,
    * then the current Session's Workspace, then the recent-Workspace
    * projection — connect its blank session and navigate there; with no
-   * Workspace at all, clear the selection into the New Session view state.
+   * Workspace at all, create a chat-only session against the deployment
+   * default. Workspace selection remains optional until files are needed.
    * Connect failures are non-fatal (console diagnostics; the current view
    * stays usable).
    * @param workspaceId - explicit target Workspace for scoped actions.
@@ -182,7 +214,10 @@ export class WorkspaceRuntime implements IWorkspaces {
       : workspace.items.find(item => item.sessionIds.includes(current))?.workspaceId
     const target = workspaceId ?? currentWorkspaceId ?? workspace.recentWorkspaceId
     if (target === undefined) {
-      this.sessions.clear()
+      void this.connectDefaultSession().then(
+        (sessionId) => { this.sessions.open(sessionId) },
+        (reason: unknown) => { console.warn('new chat failed:', reason) },
+      )
       return
     }
     void this.connectWorkspace(target).then(

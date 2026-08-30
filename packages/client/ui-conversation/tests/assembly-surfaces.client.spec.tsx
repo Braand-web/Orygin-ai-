@@ -76,7 +76,7 @@ async function bench(opts?: { blank?: boolean }) {
 }
 
 describe('resident composer', () => {
-  it('renders the locked view state while no session exists at all', async () => {
+  it('starts a chat-only Session from the no-session composer', async () => {
     const runtime = await SlotTestRuntime.create()
     runtime.provide('connection', { api: { settings: {} }, isLoopback: false })
     // The plugin injects both; these specs exercise no settings path.
@@ -94,13 +94,14 @@ describe('resident composer', () => {
     expect(textarea).not.toBeNull()
     expect(textarea!.disabled).toBe(false)
     expect(textarea!.readOnly).toBe(true)
-    expect(textarea!.getAttribute('aria-haspopup')).toBe('menu')
+    expect(textarea!.placeholder).toBe('点击即可开始对话')
+    expect(textarea!.getAttribute('aria-label')).toBe('开始对话')
+    expect(textarea!.getAttribute('aria-haspopup')).toBeNull()
     expect(view.getByTestId('workspace-probe').textContent).toBe('false:0')
     fireEvent.click(textarea!)
-    expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
-    expect(textarea!.getAttribute('aria-expanded')).toBe('true')
+    expect(runtime.workspaces.calls).toContainEqual({ method: 'startSession', args: [undefined] })
+    expect(view.getByTestId('workspace-probe').textContent).toBe('false:0')
     fireEvent.click(view.getByRole('button', { name: '选择工作区' }))
-    fireEvent.keyDown(textarea!, { key: 'Enter' })
     expect(view.getByTestId('workspace-probe').textContent).toBe('true:0')
     expect(view.getByRole('button', { name: '选择工作区' })).toBeTruthy()
     await runtime.dispose()
@@ -132,6 +133,7 @@ describe('resident composer', () => {
     const workspaceProbe = view.getByTestId('workspace-probe')
     expect(textarea.disabled).toBe(false)
     expect(textarea.readOnly).toBe(true)
+    expect(textarea.placeholder).toBe('点击即可开始对话')
 
     fireEvent.click(workspaceChip)
     fireEvent.click(workspaceProbe)

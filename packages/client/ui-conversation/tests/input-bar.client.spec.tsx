@@ -75,6 +75,7 @@ interface BenchOptions {
   inert?: boolean
   workspacePickerOpen?: boolean
   onRequestWorkspace?: () => void
+  onRequestConversation?: () => void
   promptError?: ConversationSnapshot['promptError']
   /** Authoritative queue rows served to the machine overlay (empty = none). */
   queue?: ConversationSnapshot['queue']
@@ -194,6 +195,7 @@ function bench(over?: BenchOptions) {
     ...(over?.inert === true ? { disabled: true } : {}),
     ...(over?.workspacePickerOpen !== undefined ? { workspacePickerOpen: over.workspacePickerOpen } : {}),
     ...(over?.onRequestWorkspace !== undefined ? { onRequestWorkspace: over.onRequestWorkspace } : {}),
+    ...(over?.onRequestConversation !== undefined ? { onRequestConversation: over.onRequestConversation } : {}),
     ...(over?.placeholder !== undefined ? { placeholder: over.placeholder } : {}),
     ...(over?.accessory !== undefined ? { accessory: over.accessory } : {}),
     ...(over?.overlay !== undefined ? { overlay: over.overlay } : {}),
@@ -1101,6 +1103,30 @@ describe('running and lock semantics', () => {
       document.removeEventListener('pointerdown', onDocumentPointerDown)
     }
     expect(onDocumentPointerDown).not.toHaveBeenCalled()
+  })
+
+  it('the no-session textarea starts a conversation without opening a Workspace picker', () => {
+    const onRequestConversation = vi.fn()
+    const onRequestWorkspace = vi.fn()
+    const { view, textarea } = bench({
+      inert: true,
+      onRequestConversation,
+      onRequestWorkspace,
+      placeholder: '点击即可开始对话',
+    })
+    expect(textarea.disabled).toBe(false)
+    expect(textarea.readOnly).toBe(true)
+    expect(textarea.getAttribute('aria-label')).toBe('开始对话')
+    expect(textarea.getAttribute('aria-haspopup')).toBeNull()
+
+    fireEvent.click(textarea)
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    fireEvent.keyDown(textarea, { key: ' ' })
+    expect(onRequestConversation).toHaveBeenCalledTimes(3)
+    expect(onRequestWorkspace).not.toHaveBeenCalled()
+
+    fireEvent.click(view.container.querySelector('[data-composer-card]') as HTMLElement)
+    expect(onRequestConversation).toHaveBeenCalledTimes(4)
   })
 
   it('the plan projection swaps the placeholder while its effective target is plan mode', () => {
