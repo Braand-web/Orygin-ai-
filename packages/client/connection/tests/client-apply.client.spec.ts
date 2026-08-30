@@ -399,6 +399,9 @@ describe('connection client apply', () => {
     await vi.waitFor(() => {
       expect(sockets[0]?.url).toBe(`wss://harness.example/api/events.mux?ticket=${'s'.repeat(43)}`)
     })
+    expect(fetch.mock.calls.map((call: unknown[]) => String(call[0]))).toEqual([
+      'https://harness.example/api/auth/ws-ticket',
+    ])
     abort.abort()
     await expect(pending).resolves.toMatchObject({ done: true })
     fetch.mockRestore()

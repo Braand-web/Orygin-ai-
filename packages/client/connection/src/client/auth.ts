@@ -62,7 +62,15 @@ export async function withWebSocketTicket(url: URL): Promise<URL> {
   const token = getAccessToken()
   if (token === undefined) return url
   const endpoint = new URL('/api/auth/ws-ticket', url)
-  endpoint.protocol = endpoint.protocol === 'wss:' ? 'https:' : 'http:'
+  // Ticket exchange is an ordinary HTTP request, but it must preserve the
+  // page's transport security. `url` is the WebSocket endpoint (`ws:` or
+  // `wss:`) after it has been resolved against the page origin (`http:` or
+  // `https:`). The previous check only handled `wss:` and therefore turned an
+  // HTTPS page into `http://...`, which browsers block as mixed content before
+  // the gateway can issue a ticket.
+  endpoint.protocol = endpoint.protocol === 'wss:' || endpoint.protocol === 'https:'
+    ? 'https:'
+    : 'http:'
   const response = await globalThis.fetch(endpoint, {
     method: 'POST',
     headers: { authorization: `Bearer ${token}` },
