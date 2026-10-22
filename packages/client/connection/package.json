@@ -41,7 +41,7 @@
     "@orygin-ai/schemastery": "workspace:^",
     "@paddle/paddle-node-sdk": "3.10.0",
     "@supabase/supabase-js": "2.112.4",
-    "ws": "^8.21.0"
+    "ws": "^8.21.1"
   },
   "files": [
     "lib/index.js",
